@@ -1,0 +1,248 @@
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { Search, Bell, User, X } from 'lucide-react'
+import { supabase } from '../lib/supabaseClient'
+import { workouts } from '../data/workouts'
+import { somaliFoods } from '../data/somaliFoods'
+import toast from 'react-hot-toast'
+
+const Topbar = () => {
+  const { profile } = useAuth()
+  const navigate = useNavigate()
+  const [avatarUrl, setAvatarUrl] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [showResults, setShowResults] = useState(false)
+  const searchRef = useRef(null)
+
+  useEffect(() => {
+    if (profile?.avatar_url) {
+      loadAvatar(profile.avatar_url)
+    }
+  }, [profile])
+
+  const loadAvatar = async (path) => {
+    try {
+      const { data } = await supabase.storage.from('avatars').getPublicUrl(path)
+      if (data?.publicUrl) {
+        setAvatarUrl(data.publicUrl)
+      }
+    } catch (error) {
+      console.error('Error loading avatar:', error)
+    }
+  }
+
+  // Calculate session time
+  const [sessionTime, setSessionTime] = useState(0)
+  const [lastLogin, setLastLogin] = useState('')
+
+  useEffect(() => {
+    if (profile?.last_sign_in_at) {
+      const lastLoginDate = new Date(profile.last_sign_in_at)
+      setLastLogin(lastLoginDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
+
+      const interval = setInterval(() => {
+        const now = new Date()
+        const diff = Math.floor((now - lastLoginDate) / 1000 / 60) // minutes
+        setSessionTime(diff)
+      }, 60000) // Update every minute
+
+      return () => clearInterval(interval)
+    }
+  }, [profile])
+
+  // Global search functionality
+  useEffect(() => {
+    if (searchQuery.trim().length === 0) {
+      setSearchResults([])
+      setShowResults(false)
+      return
+    }
+
+    const query = searchQuery.toLowerCase().trim()
+    const results = []
+
+    // Search workouts
+    workouts
+      .filter((workout) =>
+        workout.name.toLowerCase().includes(query) ||
+        workout.description.toLowerCase().includes(query) ||
+        workout.category.toLowerCase().includes(query)
+      )
+      .slice(0, 5)
+      .forEach((workout) => {
+        results.push({
+          type: 'workout',
+          id: workout.id,
+          name: workout.name,
+          description: workout.description,
+          category: workout.category,
+          data: workout,
+        })
+      })
+
+    // Search foods
+    somaliFoods
+      .filter(
+        (food) =>
+          food.name.toLowerCase().includes(query) ||
+          food.nameEn.toLowerCase().includes(query) ||
+          food.category.toLowerCase().includes(query)
+      )
+      .slice(0, 5)
+      .forEach((food) => {
+        results.push({
+          type: 'food',
+          id: food.id,
+          name: food.name,
+          description: food.nameEn,
+          category: food.category,
+          data: food,
+        })
+      })
+
+    setSearchResults(results)
+    setShowResults(results.length > 0)
+  }, [searchQuery])
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const handleSearchResultClick = (result) => {
+    if (result.type === 'workout') {
+      navigate('/workouts')
+      toast.success(`Found workout: ${result.name}`)
+    } else if (result.type === 'food') {
+      navigate('/nutrition')
+      toast.success(`Found food: ${result.name}`)
+    }
+    setSearchQuery('')
+    setShowResults(false)
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setSearchResults([])
+    setShowResults(false)
+  }
+
+  return (
+    <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-20 lg:ml-64">
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Global Search */}
+          <div className="flex-1 flex items-center max-w-lg relative" ref={searchRef}>
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+              <input
+                type="text"
+                placeholder="Search workouts, foods..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.trim().length > 0 && setShowResults(true)}
+                className="w-full pl-10 pr-10 py-2 bg-white/80 backdrop-blur-lg border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Results Dropdown */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-xl max-h-96 overflow-y-auto z-50">
+                <div className="p-2">
+                  {searchResults.map((result, index) => (
+                    <button
+                      key={`${result.type}-${result.id}-${index}`}
+                      onClick={() => handleSearchResultClick(result)}
+                      className="w-full text-left p-3 hover:bg-gray-100 rounded-lg transition-colors mb-1"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-teal-100 text-teal-700">
+                              {result.type === 'workout' ? '💪 Workout' : '🍎 Food'}
+                            </span>
+                            <span className="text-sm font-bold text-gray-900">{result.name}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-1">{result.description}</p>
+                          <span className="text-xs text-gray-500">{result.category}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {searchResults.length >= 10 && (
+                  <div className="p-3 text-center text-xs text-gray-500 border-t border-gray-200">
+                    Showing first 10 results. Refine your search for more specific results.
+                  </div>
+                )}
+              </div>
+            )}
+            {showResults && searchResults.length === 0 && searchQuery.trim().length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-xl p-4 z-50">
+                <p className="text-sm text-gray-500 text-center">No results found for "{searchQuery}"</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-4 ml-4">
+            {/* Session Timer */}
+            {sessionTime > 0 && (
+              <div className="hidden md:block text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg">
+                <span className="font-medium">Active:</span> {sessionTime} min
+              </div>
+            )}
+
+            {/* Notifications */}
+            <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+
+            {/* Profile */}
+            <div className="flex items-center gap-3">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={profile?.full_name || 'User'}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-teal-500"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+                  <User className="w-5 h-5" />
+                </div>
+              )}
+              <div className="hidden sm:block">
+                <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'User'}</p>
+                {lastLogin && (
+                  <p className="text-xs text-gray-500">Last login: {lastLogin}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+export default Topbar

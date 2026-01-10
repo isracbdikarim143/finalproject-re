@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-blue-50 via-white to-teal-50 text-gray-900 min-h-screen;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white/80 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-white/20;
+  }
+  
+  .gradient-primary {
+    @apply bg-gradient-to-r from-blue-500 to-teal-500;
+  }
+  
+  .gradient-success {
+    @apply bg-gradient-to-r from-green-400 to-emerald-500;
+  }
+  
+  .gradient-warning {
+    @apply bg-gradient-to-r from-orange-400 to-red-500;
+  }
+
+  /* Glassmorphism effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-lg border border-white/20;
+  }
+}
