@@ -3,6 +3,8 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
+import { checkSupabaseConfig } from './lib/supabaseClient'
 
 // Pages
 import Login from './pages/Login'
@@ -14,10 +16,17 @@ import Progress from './pages/Progress'
 import Profile from './pages/Profile'
 
 function App() {
+  // Log Supabase config status on mount (helpful for debugging)
+  if (import.meta.env.DEV) {
+    const config = checkSupabaseConfig()
+    console.log('🔧 Supabase Config Check:', config)
+  }
+
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
@@ -103,8 +112,9 @@ function App() {
             },
           }}
         />
-      </Router>
-    </AuthProvider>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
