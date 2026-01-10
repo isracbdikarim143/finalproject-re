@@ -130,26 +130,76 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     try {
+      // Check if Supabase is configured before attempting login
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+      if (!supabaseUrl || !supabaseKey) {
+        const errorMsg = 'Database connection failed: Environment variables are missing. Please check Vercel settings.'
+        console.error('❌ Login failed:', errorMsg)
+        toast.error('Database connection failed. Please contact support.', { duration: 5000 })
+        return { user: null, error: new Error(errorMsg) }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        // Handle specific error types
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.name === 'TypeError') {
+          console.error('❌ Network error during login:', error)
+          toast.error('Database connection failed. Please check your internet connection and try again.', { duration: 5000 })
+          return { user: null, error: new Error('Network error: Failed to connect to database') }
+        }
+        throw error
+      }
 
       if (data.user) {
         // Update last sign in
-        await supabase
-          .from('profiles')
-          .update({ last_sign_in_at: new Date().toISOString() })
-          .eq('id', data.user.id)
+        try {
+          await supabase
+            .from('profiles')
+            .update({ last_sign_in_at: new Date().toISOString() })
+            .eq('id', data.user.id)
+        } catch (profileError) {
+          // Non-critical error, just log it
+          console.warn('Could not update last sign in:', profileError)
+        }
 
         toast.success('Welcome back! ✅')
         return { user: data.user, error: null }
       }
+
+      return { user: null, error: new Error('No user data returned') }
     } catch (error) {
       console.error('Sign in error:', error)
-      toast.error(error.message || 'Invalid email or password')
+      
+      // Handle network/fetch errors specifically
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('NetworkError') || 
+          error.message?.includes('fetch') ||
+          error.name === 'TypeError') {
+        const networkErrorMsg = 'Database connection failed. Please check: 1) Internet connection, 2) Vercel environment variables, 3) Supabase CORS settings.'
+        toast.error(networkErrorMsg, { duration: 6000 })
+        return { user: null, error: new Error('Network error: ' + error.message) }
+      }
+
+      // Handle email not confirmed
+      if (error.message?.includes('Email not confirmed') || error.type === 'EMAIL_NOT_CONFIRMED') {
+        toast.error('Please check your email and confirm your account before logging in.', { duration: 5000 })
+        return { user: null, error: { ...error, type: 'EMAIL_NOT_CONFIRMED' } }
+      }
+
+      // Handle invalid credentials
+      if (error.message?.includes('Invalid login credentials') || error.status === 400) {
+        toast.error('Invalid email or password. Please try again.')
+        return { user: null, error }
+      }
+
+      // Generic error
+      toast.error(error.message || 'Failed to sign in. Please try again.')
       return { user: null, error }
     }
   }

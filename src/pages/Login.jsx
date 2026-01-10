@@ -8,20 +8,46 @@ const Login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const { signIn } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setError('') // Clear previous errors
 
-    const { user, error } = await signIn(email, password)
+    // Check environment variables before attempting login
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-    if (user && !error) {
-      navigate('/dashboard')
+    if (!supabaseUrl || !supabaseKey) {
+      setError('Database connection configuration is missing. Please check Vercel environment variables.')
+      setLoading(false)
+      return
     }
 
-    setLoading(false)
+    try {
+      const { user, error: signInError } = await signIn(email, password)
+
+      if (signInError) {
+        // Error is already shown via toast in AuthContext, but set local error for display
+        if (signInError.message?.includes('Network error') || signInError.message?.includes('Failed to fetch')) {
+          setError('Cannot connect to database. Please check your connection and Vercel settings.')
+        } else if (signInError.type === 'EMAIL_NOT_CONFIRMED') {
+          setError('Please check your email and confirm your account before logging in.')
+        } else {
+          setError('Invalid email or password. Please try again.')
+        }
+      } else if (user && !signInError) {
+        navigate('/dashboard')
+      }
+    } catch (err) {
+      console.error('Login form error:', err)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -39,6 +65,18 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+            {/* Error Message Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 md:p-4 mb-4">
+                <p className="text-red-600 text-xs sm:text-sm font-medium">{error}</p>
+                {error.includes('Database connection') && (
+                  <p className="text-red-500 text-xs mt-2">
+                    Check browser console (F12) for detailed error information.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Email

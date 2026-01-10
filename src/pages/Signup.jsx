@@ -10,31 +10,53 @@ const Signup = () => {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const { signUp } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('') // Clear previous errors
 
     if (password !== confirmPassword) {
-      alert('Passwords do not match')
+      setError('Passwords do not match. Please try again.')
       return
     }
 
     if (password.length < 6) {
-      alert('Password must be at least 6 characters')
+      setError('Password must be at least 6 characters long.')
+      return
+    }
+
+    // Check environment variables before attempting signup
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      setError('Database connection configuration is missing. Please check Vercel environment variables.')
       return
     }
 
     setLoading(true)
 
-    const { user, error } = await signUp(email, password, fullName)
+    try {
+      const { user, error: signUpError } = await signUp(email, password, fullName)
 
-    if (user && !error) {
-      navigate('/dashboard')
+      if (signUpError) {
+        if (signUpError.message?.includes('Network error') || signUpError.message?.includes('Failed to fetch')) {
+          setError('Cannot connect to database. Please check your connection and Vercel settings.')
+        } else {
+          setError(signUpError.message || 'Failed to create account. Please try again.')
+        }
+      } else if (user && !signUpError) {
+        navigate('/dashboard')
+      }
+    } catch (err) {
+      console.error('Signup form error:', err)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
@@ -52,6 +74,18 @@ const Signup = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
+            {/* Error Message Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 md:p-4 mb-4">
+                <p className="text-red-600 text-xs sm:text-sm font-medium">{error}</p>
+                {error.includes('Database connection') && (
+                  <p className="text-red-500 text-xs mt-2">
+                    Check browser console (F12) for detailed error information.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Full Name
