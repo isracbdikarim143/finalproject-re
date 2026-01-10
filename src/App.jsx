@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
@@ -16,11 +17,44 @@ import Progress from './pages/Progress'
 import Profile from './pages/Profile'
 
 function App() {
-  // Log Supabase config status on mount (helpful for debugging)
-  if (import.meta.env.DEV) {
+  // Comprehensive debug logging - ALWAYS runs in production too
+  // This helps diagnose blank screen issues on Vercel
+  useEffect(() => {
+    console.log('🚀 App Component Mounted')
+    console.log('📍 Environment Information:')
+    console.log('  - MODE:', import.meta.env.MODE)
+    console.log('  - PROD:', import.meta.env.PROD)
+    console.log('  - DEV:', import.meta.env.DEV)
+    
     const config = checkSupabaseConfig()
-    console.log('🔧 Supabase Config Check:', config)
-  }
+    console.log('🔧 Supabase Configuration Check:')
+    console.log('  - URL Configured:', config.urlConfigured ? '✅ YES' : '❌ NO')
+    console.log('  - Key Configured:', config.keyConfigured ? '✅ YES' : '❌ NO')
+    console.log('  - URL Preview:', config.url)
+    console.log('  - URL Length:', config.urlLength, 'characters')
+    console.log('  - Key Length:', config.keyLength, 'characters')
+    console.log('  - Production Mode:', config.isProduction ? 'YES' : 'NO')
+    
+    // Direct environment variable check
+    console.log('🔍 Direct Env Variable Check:')
+    console.log('  - VITE_SUPABASE_URL exists:', !!import.meta.env.VITE_SUPABASE_URL)
+    console.log('  - VITE_SUPABASE_ANON_KEY exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY)
+    console.log('  - VITE_SUPABASE_URL value:', import.meta.env.VITE_SUPABASE_URL ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 40)}...` : 'undefined')
+    
+    if (!config.urlConfigured || !config.keyConfigured) {
+      console.error('❌ CRITICAL: Supabase environment variables are missing!')
+      console.error('📋 Action Required:')
+      console.error('   1. Go to Vercel Dashboard')
+      console.error('   2. Select your project: final-project-recat')
+      console.error('   3. Navigate to: Settings > Environment Variables')
+      console.error('   4. Add: VITE_SUPABASE_URL (your Supabase project URL)')
+      console.error('   5. Add: VITE_SUPABASE_ANON_KEY (your Supabase anon key)')
+      console.error('   6. Enable for: Production, Preview, and Development')
+      console.error('   7. Redeploy your application')
+    } else {
+      console.log('✅ Environment variables are properly configured!')
+    }
+  }, [])
 
   return (
     <ErrorBoundary>
