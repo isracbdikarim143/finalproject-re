@@ -343,22 +343,28 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="mb-6">
-        <h2 className="text-sm text-gray-600 mb-1">Welcome back, {profile?.full_name || 'User'}</h2>
-        <h1 className="text-4xl font-bold text-gray-900">Dashboard</h1>
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      {/* Welcome Header - Responsive */}
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-xs md:text-sm text-gray-500 md:text-gray-600 mb-1">
+          Welcome back, {profile?.full_name || 'User'}
+        </h2>
+        <h1 className="text-2xl md:text-4xl font-bold text-gray-900">Dashboard</h1>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-          <p className="text-red-600 text-sm">{error}</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-red-50/90 backdrop-blur-sm border border-red-200/50 rounded-xl p-3 md:p-4 mb-4"
+        >
+          <p className="text-red-600 text-xs md:text-sm">{error}</p>
+        </motion.div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Stats Cards - Enhanced Glassmorphism */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {statCards.map((stat, index) => {
           const Icon = stat.icon
           return (
@@ -367,86 +373,111 @@ const Dashboard = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 hover:shadow-xl transition-all"
+              className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-5 md:p-6 border border-white/30 hover:border-white/50 transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] relative overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color}`}>
-                  <Icon className="w-6 h-6 text-white" />
+              {/* Glassmorphism overlay effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg`}>
+                    <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                  </div>
+                  <a href="#" className="text-xs md:text-sm text-teal-600 hover:text-teal-700 font-medium opacity-70 hover:opacity-100 transition-opacity">
+                    View all
+                  </a>
                 </div>
-                <a href="#" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
-                  View all
-                </a>
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
+                  {stat.value} <span className="text-sm md:text-lg text-gray-500 font-normal">{stat.unit}</span>
+                </h3>
+                <p className="text-xs md:text-sm text-gray-600 font-medium">{stat.label}</p>
               </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-1">
-                {stat.value} <span className="text-lg text-gray-500 font-normal">{stat.unit}</span>
-              </h3>
-              <p className="text-sm text-gray-600">{stat.label}</p>
             </motion.div>
           )
         })}
       </div>
 
-      {/* Activity Chart */}
+      {/* Activity Chart - Enhanced Glassmorphism */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20"
+        className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-4 md:p-6 border border-white/30 hover:border-white/50 transition-all duration-300"
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Activity Overview</h2>
-          <a href="#" className="text-sm text-teal-600 hover:text-teal-700 font-medium">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6 gap-2">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900">Activity Overview</h2>
+          <a href="#" className="text-xs md:text-sm text-teal-600 hover:text-teal-700 font-medium">
             View all statistics
           </a>
         </div>
         {activityData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={activityData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
-              <XAxis dataKey="day" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                }}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="calories"
-                stroke="#14b8a6"
-                strokeWidth={3}
-                dot={{ fill: '#14b8a6', r: 6 }}
-                name="Calories"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="w-full" style={{ height: '250px', minHeight: '250px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={activityData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" opacity={0.5} />
+                <XAxis 
+                  dataKey="day" 
+                  stroke="#6b7280" 
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <YAxis 
+                  stroke="#6b7280" 
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)',
+                    padding: '12px',
+                  }}
+                  labelStyle={{ color: '#1f2937', fontWeight: 'bold' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '14px', paddingTop: '10px' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="calories"
+                  stroke="#14b8a6"
+                  strokeWidth={3}
+                  dot={{ fill: '#14b8a6', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 8, strokeWidth: 2, stroke: '#fff' }}
+                  name="Calories"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-          <div className="h-300 flex items-center justify-center text-gray-500">
-            <p>No activity data available. Start logging your meals and workouts!</p>
+          <div className="h-[250px] flex items-center justify-center text-gray-500 p-4">
+            <p className="text-sm md:text-base text-center">No activity data available. Start logging your meals and workouts!</p>
           </div>
         )}
       </motion.div>
 
-      {/* Quick Actions / Reminders */}
+      {/* Quick Actions / Reminders - Enhanced Glassmorphism */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-2xl shadow-lg p-6 text-white"
+        className="bg-gradient-to-r from-teal-500 via-blue-500 to-teal-600 rounded-2xl shadow-xl p-5 md:p-6 text-white relative overflow-hidden border border-white/20"
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold mb-1">Don't forget</h3>
-            <p className="text-teal-50 mb-2">Log your meals and workouts to track your progress</p>
-            <button className="bg-white text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-teal-50 transition-all">
+        {/* Glassmorphism overlay */}
+        <div className="absolute inset-0 bg-white/10 backdrop-blur-sm" />
+        
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
+            <h3 className="text-base md:text-lg font-semibold mb-1">Don't forget</h3>
+            <p className="text-teal-50/90 mb-3 text-sm md:text-base">Log your meals and workouts to track your progress</p>
+            <button className="bg-white/95 text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-white transition-all shadow-lg hover:shadow-xl text-sm md:text-base">
               Go to Nutrition
             </button>
           </div>
-          <Calendar className="w-16 h-16 text-white/30" />
+          <Calendar className="w-12 h-12 md:w-16 md:h-16 text-white/30 flex-shrink-0" />
         </div>
       </motion.div>
     </div>
