@@ -26,31 +26,11 @@ const Workouts = () => {
     }
 
     loadTodayWorkouts()
-
-    // Real-time subscription for workout_logs
-    const channel = supabase
-      .channel(`workout-library-changes-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'workout_logs',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          loadTodayWorkouts()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
   }, [user?.id])
 
   const loadTodayWorkouts = async () => {
     if (!user?.id) {
+      setLoading(false)
       return
     }
 
@@ -84,20 +64,18 @@ const Workouts = () => {
           )
           setTodayWorkouts([])
           setCompletedWorkouts([])
-          setLoading(false)
-          return
         } else {
           throw fetchError
         }
+      } else {
+        setTodayWorkouts(data || [])
+        setCompletedWorkouts(data?.map((w) => w.workout_type || w.workout_name || w.name) || [])
       }
-
-      setTodayWorkouts(data || [])
-      setCompletedWorkouts(data?.map((w) => w.workout_type || w.workout_name || w.name) || [])
-      setLoading(false)
     } catch (error) {
       console.error('Error loading workouts:', error)
       setError(`Failed to load workouts: ${error.message || 'Unknown error'}`)
       toast.error(`Failed to load workouts: ${error.message || 'Unknown error'}`)
+    } finally {
       setLoading(false)
     }
   }

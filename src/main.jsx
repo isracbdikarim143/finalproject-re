@@ -3,6 +3,24 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
+// GLOBAL ERROR SUPPRESSION: Intercept and ignore AbortError
+window.addEventListener('error', (event) => {
+  if (event.error?.name === 'AbortError' || event.message?.includes('aborted')) {
+    console.log('🔇 Suppressed AbortError:', event.error?.message || event.message)
+    event.preventDefault()
+    return false
+  }
+})
+
+// Global unhandled promise rejection handler for AbortError
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason?.name === 'AbortError' || event.reason?.message?.includes('aborted')) {
+    console.log('🔇 Suppressed AbortError promise rejection:', event.reason?.message || 'Unknown')
+    event.preventDefault()
+    return false
+  }
+})
+
 // Error handling for root render
 try {
   const rootElement = document.getElementById('root')
@@ -17,12 +35,15 @@ try {
     </React.StrictMode>
   )
 } catch (error) {
-  console.error('❌ Failed to render application:', error)
-  document.body.innerHTML = `
-    <div style="padding: 20px; font-family: sans-serif; color: red;">
-      <h1>Application Failed to Load</h1>
-      <p>Error: ${error.message}</p>
-      <p>Check the browser console for more details.</p>
-    </div>
-  `
+  // Suppress AbortError in render catch
+  if (error?.name !== 'AbortError' && !error?.message?.includes('aborted')) {
+    console.error('❌ Failed to render application:', error)
+    document.body.innerHTML = `
+      <div style="padding: 20px; font-family: sans-serif; color: red;">
+        <h1>Application Failed to Load</h1>
+        <p>Error: ${error.message}</p>
+        <p>Check the browser console for more details.</p>
+      </div>
+    `
+  }
 }

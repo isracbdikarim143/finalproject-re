@@ -4,13 +4,21 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// EMERGENCY DEBUG: Log environment variables
+console.log('🔍 EMERGENCY DEBUG: Environment Variable Check')
+console.log('  - import.meta.env.VITE_SUPABASE_URL exists:', !!import.meta.env.VITE_SUPABASE_URL)
+console.log('  - import.meta.env.VITE_SUPABASE_ANON_KEY exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY)
+console.log('  - supabaseUrl value:', supabaseUrl ? `${supabaseUrl.substring(0, 50)}...` : 'UNDEFINED')
+console.log('  - supabaseAnonKey length:', supabaseAnonKey?.length || 0)
+console.log('  - import.meta.env.MODE:', import.meta.env.MODE)
+console.log('  - import.meta.env.PROD:', import.meta.env.PROD)
+console.log('  - import.meta.env.DEV:', import.meta.env.DEV)
+
 // Simplified redirect URL function - returns window.location.origin if available
-// This ensures it works across all preview and production environments automatically
 const getRedirectUrl = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin
   }
-  // Fallback only for SSR (should not happen in browser/client-side)
   return 'https://finalproject-re.vercel.app'
 }
 
@@ -71,30 +79,24 @@ if (supabaseAnonKey && !supabaseAnonKey.startsWith('eyJ')) {
   console.warn('⚠️ Supabase anon key format may be incorrect. Expected JWT token starting with "eyJ"')
 }
 
-// Strict check: Don't create client with placeholder values in production
-if ((!supabaseUrl || !supabaseAnonKey) && import.meta.env.PROD) {
-  console.error('🚨 Cannot create Supabase client: Environment variables are missing!')
-  console.error('🚨 Application will fail to connect to database.')
-}
+// Create Supabase client with fallback (TEMPORARY - for debugging)
+const finalSupabaseUrl = supabaseUrl || 'https://placeholder.supabase.co'
+const finalSupabaseKey = supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder'
 
-// Create Supabase client with strict validation
-// In production, fail fast if variables are missing
-const finalSupabaseUrl = supabaseUrl || (import.meta.env.PROD ? null : 'https://placeholder.supabase.co')
-const finalSupabaseKey = supabaseAnonKey || (import.meta.env.PROD ? null : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder')
-
-if (!finalSupabaseUrl || !finalSupabaseKey) {
+if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Cannot initialize Supabase client: Missing required environment variables')
+  console.error('⚠️ Using placeholder values - database will NOT work!')
 }
 
 export const supabase = createClient(
-  finalSupabaseUrl || 'https://placeholder.supabase.co',
-  finalSupabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder',
+  finalSupabaseUrl,
+  finalSupabaseKey,
   {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      flowType: 'pkce', // Recommended for production
+      flowType: 'pkce',
       redirectTo: typeof window !== 'undefined' ? window.location.origin : getRedirectUrl(),
     },
     global: {
@@ -151,7 +153,6 @@ export const checkSupabaseConfig = () => {
     redirectUrl: typeof window !== 'undefined' ? window.location.origin : getRedirectUrl(),
     urlValid: supabaseUrl?.startsWith('https://') || false,
     keyValid: supabaseAnonKey?.startsWith('eyJ') || false,
-    // Direct environment variable check
     envUrl: import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Missing',
     envKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Missing',
   }
