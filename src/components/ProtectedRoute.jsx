@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, isMobileDevice } from '../lib/supabaseClient'
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth()
   const [sessionChecked, setSessionChecked] = useState(false)
   const [hasSession, setHasSession] = useState(false)
 
-  // Additional session check for mobile browsers with 500ms delay
+  // Additional session check with mobile-specific delay
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // MOBILE FIX: 500ms delay gives mobile browsers enough time to initialize Supabase client and retrieve token from storage
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // MOBILE FIX: 1000ms delay for mobile devices, 300ms for desktop
+        // This ensures mobile browsers have enough time to initialize Supabase client
+        // and retrieve the token from localStorage before we check
+        const isMobile = isMobileDevice()
+        const delay = isMobile ? 1000 : 300 // 1 second for mobile, 300ms for desktop
+        console.log(`🔍 ProtectedRoute: Checking session after ${delay}ms delay (${isMobile ? 'Mobile' : 'Desktop'})`)
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
         
         const { data: { session }, error } = await supabase.auth.getSession()
         if (error) {
@@ -34,7 +40,7 @@ const ProtectedRoute = ({ children }) => {
     checkSession()
   }, [])
 
-  // Show loading state while checking (including the 500ms delay)
+  // Show loading state while checking (including the delay)
   if (loading || !sessionChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-teal-50">

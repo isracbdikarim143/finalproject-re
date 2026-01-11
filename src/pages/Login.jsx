@@ -34,21 +34,23 @@ const Login = () => {
       }
 
       if (result.user && !result.error) {
-        console.log('✅ Login successful, refreshing session for mobile...')
+        console.log('✅ Login successful, ensuring session is saved...')
         
-        // CRITICAL for mobile: Call getSession() to ensure session is saved locally BEFORE redirect
+        // MOBILE FIX: Force session refresh to ensure it's saved locally
         try {
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
           if (sessionError) {
             console.error('Session refresh error:', sessionError)
           } else {
             console.log('✅ Session refreshed successfully:', !!sessionData?.session)
-            // Additional wait to ensure session is saved to localStorage on mobile
-            await new Promise(resolve => setTimeout(resolve, 300))
           }
         } catch (sessionErr) {
           console.error('Session refresh exception:', sessionErr)
         }
+        
+        // MOBILE FIX: Wait 500ms after signIn to give mobile OS time to write auth token to disk
+        console.log('⏳ Waiting for mobile storage write...')
+        await new Promise(resolve => setTimeout(resolve, 500))
         
         console.log('🧭 Redirecting to dashboard...')
         // Use replace instead of href to prevent back-button and cache issues

@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [activityData, setActivityData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [initialLoad, setInitialLoad] = useState(true)
 
   useEffect(() => {
     if (!user?.id) {
@@ -91,10 +92,17 @@ const Dashboard = () => {
       return
     }
 
-    try {
+    // MOBILE FIX: Don't show spinner if this is not the initial load and we have cached data
+    const isRefresh = !initialLoad && (stats.calories > 0 || stats.water > 0 || stats.workouts > 0)
+    if (isRefresh) {
+      // Silent refresh - don't show loading spinner
+      console.log('📊 Dashboard: Silent refresh (cached data exists)')
+    } else {
       setLoading(true)
-      setError(null)
+    }
+    setError(null)
 
+    try {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const todayISO = today.toISOString()
@@ -150,10 +158,12 @@ const Dashboard = () => {
       await loadActivityData(userId)
       
       setLoading(false)
+      setInitialLoad(false) // Mark initial load as complete
     } catch (error) {
       console.error('Error loading dashboard data:', error)
       setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`)
       setLoading(false)
+      setInitialLoad(false)
     }
   }
 
@@ -248,7 +258,7 @@ const Dashboard = () => {
     },
   ]
 
-  if (loading) {
+  if (loading && initialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">

@@ -9,6 +9,16 @@ console.log('🔍 Supabase Client Initialization')
 console.log('  - URL exists:', !!supabaseUrl)
 console.log('  - Key exists:', !!supabaseAnonKey)
 
+// Helper function to detect mobile user agent
+export const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+// MOBILE FIX: Force localStorage for mobile browsers (more reliable than cookies)
+// Supabase uses localStorage by default, but we ensure it's explicitly set
+const storage = typeof window !== 'undefined' ? window.localStorage : null
+
 // Standard Supabase client initialization with full session persistence for mobile
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
@@ -20,6 +30,8 @@ export const supabase = createClient(
       detectSessionInUrl: true, // REQUIRED: Mobile browsers need URL session detection
       flowType: 'pkce',
       redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://finalproject-re.vercel.app',
+      storage: storage, // EXPLICIT: Force localStorage for mobile reliability
+      storageKey: 'sb-auth-token', // Default key, but explicit for clarity
     },
     global: {
       headers: {
@@ -61,13 +73,8 @@ export const checkSupabaseConfig = () => {
     keyLength: supabaseAnonKey?.length || 0,
     isProduction: import.meta.env.PROD,
     mode: import.meta.env.MODE,
+    isMobile: isMobileDevice(),
   }
 }
 
-// Helper function to detect mobile user agent
-export const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-}
-
-console.log('✅ Supabase client initialized with full session persistence for mobile')
+console.log('✅ Supabase client initialized with localStorage persistence for mobile')
