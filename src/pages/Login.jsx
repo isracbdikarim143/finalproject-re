@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { isSupabaseConfigured, checkSupabaseConfig } from '../lib/supabaseClient'
 import { Mail, Lock, LogIn } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -11,99 +10,42 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { signIn } = useAuth()
-  const navigate = useNavigate()
-
-  // Check Supabase configuration on mount
-  useEffect(() => {
-    const config = checkSupabaseConfig()
-    if (!config.valid) {
-      console.error('❌ Login: Supabase not configured')
-      setError('Database connection failed. Please check Vercel environment variables.')
-      setLoading(false)
-    } else {
-      console.log('✅ Login: Supabase configured correctly')
-    }
-  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('🔐 Login form submitted')
-    
-    // Check Supabase configuration before attempting login
-    const config = checkSupabaseConfig()
-    if (!config.valid || !isSupabaseConfigured) {
-      console.error('❌ Login: Supabase credentials missing')
-      setError('Database connection failed. Please check Vercel environment variables.')
-      setLoading(false)
-      return
-    }
-
     setLoading(true)
     setError('')
 
-    // Check environment variables before attempting login
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Environment variables missing')
-      setError('Database connection configuration is missing. Please check Vercel environment variables.')
-      setLoading(false)
-      return
-    }
-
-    console.log('✅ Environment variables found, attempting login...')
-    console.log('📧 Email:', email)
-
     try {
-      console.log('🚀 Calling signIn function...')
+      console.log('🔐 Login attempt started')
       const result = await signIn(email, password)
-      console.log('📥 signIn result:', { user: !!result.user, error: result.error?.message })
 
       if (result.error) {
         console.error('❌ Login error:', result.error)
-        // Error is already shown via toast in AuthContext
         if (result.error.message?.includes('Network error') || result.error.message?.includes('Failed to fetch')) {
           setError('Cannot connect to database. Please check your connection and Vercel settings.')
-        } else if (result.error.message?.includes('credentials missing') || result.error.code === 'ENV_MISSING') {
-          setError('Database connection failed. Please check Vercel environment variables.')
         } else if (result.error.type === 'EMAIL_NOT_CONFIRMED') {
           setError('Please check your email and confirm your account before logging in.')
         } else {
           setError('Invalid email or password. Please try again.')
         }
-        setLoading(false)
         return
       }
 
       if (result.user && !result.error) {
-        console.log('✅ Login successful, user:', result.user.id)
-        console.log('🧭 Navigating to /dashboard...')
-        
-        // Small delay to ensure session is established
-        setTimeout(() => {
-          console.log('🧭 Navigation triggered')
-          navigate('/dashboard', { replace: true })
-        }, 100)
-        
-        // Ensure loading is set to false
-        setLoading(false)
+        console.log('✅ Login successful, redirecting...')
+        // Force fresh page load with window.location.href
+        window.location.href = '/dashboard'
         return
       }
 
       // Fallback: no user returned
-      console.warn('⚠️ No user returned from signIn')
       setError('Login failed. Please try again.')
-      setLoading(false)
     } catch (err) {
-      console.error('❌ Login form exception:', err)
-      
-      // Check if it's a Supabase config error
-      if (err?.message?.includes('credentials missing') || err?.code === 'ENV_MISSING') {
-        setError('Database connection failed. Please check Vercel environment variables.')
-      } else {
-        setError('An unexpected error occurred. Please try again.')
-      }
+      console.error('❌ Login exception:', err)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      // FORCE loading off - this MUST run
       setLoading(false)
     }
   }
@@ -127,11 +69,6 @@ const Login = () => {
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 md:p-4 mb-4">
                 <p className="text-red-600 text-xs sm:text-sm font-medium">{error}</p>
-                {error.includes('Database connection') && (
-                  <p className="text-red-500 text-xs mt-2">
-                    Check browser console (F12) for detailed error information.
-                  </p>
-                )}
               </div>
             )}
 
