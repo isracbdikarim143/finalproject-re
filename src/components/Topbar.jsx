@@ -14,7 +14,9 @@ const Topbar = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [showResults, setShowResults] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const searchRef = useRef(null)
+  const notificationRef = useRef(null)
 
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -111,6 +113,9 @@ const Topbar = () => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowResults(false)
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false)
       }
     }
 
@@ -213,10 +218,30 @@ const Topbar = () => {
             )}
 
             {/* Notifications */}
-            <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+              >
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+
+              {/* Notification Panel */}
+              {showNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-xl z-50 max-h-[400px] overflow-y-auto">
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="text-lg font-bold text-gray-900">Notifications</h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="text-center text-gray-500 py-8">
+                      <Bell className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm">No new notifications</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Profile */}
             <div className="flex items-center gap-3">

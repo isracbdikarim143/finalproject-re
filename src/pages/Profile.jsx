@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { User, Camera, Save, Ruler, Weight, Mail, Calendar, Loader2 } from 'lucide-react'
+import { User, Camera, Save, Ruler, Weight, Mail, Calendar, Loader2, Image as ImageIcon, LogOut } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
 const Profile = () => {
-  const { user, profile, updateProfile, loadProfile } = useAuth()
+  const { user, profile, updateProfile, loadProfile, signOut } = useAuth()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
   const [avatarUrl, setAvatarUrl] = useState(null)
+  const [showImageSourceModal, setShowImageSourceModal] = useState(false)
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -83,6 +86,28 @@ const Profile = () => {
       toast.error(`Failed to save profile: ${error.message || 'Unknown error'}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleImageSourceClick = () => {
+    setShowImageSourceModal(true)
+  }
+
+  const handleCameraClick = () => {
+    setShowImageSourceModal(false)
+    // Trigger file input with camera capture
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute('capture', 'user')
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleGalleryClick = () => {
+    setShowImageSourceModal(false)
+    // Trigger file input without camera capture (gallery)
+    if (fileInputRef.current) {
+      fileInputRef.current.removeAttribute('capture')
+      fileInputRef.current.click()
     }
   }
 
@@ -280,6 +305,15 @@ USING (bucket_id = 'avatars');
   const bmi = calculateBMI()
   const bmiCategory = getBMICategory(bmi)
 
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="mb-6">
@@ -289,6 +323,64 @@ USING (bucket_id = 'avatars');
         </h1>
         <p className="text-gray-600 mt-2">Manage your profile information</p>
       </div>
+
+      {/* Profile Header - User Info Display */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20"
+      >
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={profile?.full_name || 'User'}
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-teal-500 shadow-lg"
+              />
+            ) : (
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center border-4 border-teal-500 shadow-lg">
+                <User className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+              </div>
+            )}
+          </div>
+          
+          {/* User Info */}
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+              {profile?.full_name || user?.email || 'User'}
+            </h2>
+            <p className="text-gray-600 flex items-center justify-center sm:justify-start gap-2 mb-2">
+              <Mail className="w-4 h-4" />
+              {user?.email}
+            </p>
+            {profile?.height_cm && profile?.weight_kg && (
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Ruler className="w-4 h-4" />
+                  {profile.height_cm} cm
+                </span>
+                <span className="flex items-center gap-1">
+                  <Weight className="w-4 h-4" />
+                  {profile.weight_kg} kg
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Logout Button - Mobile Visible */}
+          <div className="w-full sm:w-auto">
+            <button
+              onClick={handleLogout}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Profile Banner with Avatar */}
       <motion.div
@@ -329,41 +421,28 @@ USING (bucket_id = 'avatars');
                 <User className="w-16 h-16 text-white" />
               </div>
             )}
-            <label
-              htmlFor="avatar-upload"
+            <button
+              onClick={handleImageSourceClick}
+              disabled={uploading}
               className={`absolute bottom-0 right-0 p-3 bg-white rounded-full shadow-lg cursor-pointer hover:bg-gray-100 transition-all ${
                 uploading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               <Camera className="w-5 h-5 text-gray-700" />
-              <input
-                ref={fileInputRef}
-                id="avatar-upload"
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png"
-                onChange={handleImageUpload}
-                className="hidden"
-                disabled={uploading}
-                capture="user" // Enable camera on mobile devices
-              />
-            </label>
+            </button>
+            <input
+              ref={fileInputRef}
+              id="avatar-upload"
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png"
+              onChange={handleImageUpload}
+              className="hidden"
+              disabled={uploading}
+            />
           </div>
         </div>
       </motion.div>
 
-      {/* User Info */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="text-center -mt-12 relative z-10"
-      >
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">{profile?.full_name || 'User'}</h2>
-        <p className="text-gray-600 flex items-center justify-center gap-2">
-          <Mail className="w-4 h-4" />
-          {user?.email}
-        </p>
-      </motion.div>
 
       {/* Profile Form */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -490,6 +569,41 @@ USING (bucket_id = 'avatars');
           </div>
         </motion.div>
       </div>
+
+      {/* Image Source Modal - Camera or Gallery */}
+      {showImageSourceModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-xl p-6 max-w-sm w-full border border-white/20"
+          >
+            <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">Choose Image Source</h3>
+            <div className="space-y-3">
+              <button
+                onClick={handleCameraClick}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-teal-500 to-blue-500 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all"
+              >
+                <Camera className="w-5 h-5" />
+                <span>Take Photo</span>
+              </button>
+              <button
+                onClick={handleGalleryClick}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-500 to-teal-500 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all"
+              >
+                <ImageIcon className="w-5 h-5" />
+                <span>Choose from Gallery</span>
+              </button>
+              <button
+                onClick={() => setShowImageSourceModal(false)}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

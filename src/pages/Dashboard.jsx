@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { Flame, Droplet, Activity, Calendar } from 'lucide-react'
@@ -8,6 +9,7 @@ import toast from 'react-hot-toast'
 
 const Dashboard = () => {
   const { user, profile } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState({
     calories: 0,
     water: 0,
@@ -473,7 +475,10 @@ const Dashboard = () => {
           <div className="flex-1">
             <h3 className="text-base md:text-lg font-semibold mb-1">Don't forget</h3>
             <p className="text-teal-50/90 mb-3 text-sm md:text-base">Log your meals and workouts to track your progress</p>
-            <button className="bg-white/95 text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-white transition-all shadow-lg hover:shadow-xl text-sm md:text-base">
+            <button 
+              onClick={() => navigate('/nutrition')}
+              className="bg-white/95 text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-white transition-all shadow-lg hover:shadow-xl text-sm md:text-base"
+            >
               Go to Nutrition
             </button>
           </div>

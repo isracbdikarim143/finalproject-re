@@ -62,7 +62,7 @@ const Sidebar = () => {
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 z-50">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 z-50 safe-area-inset-bottom">
         <div className="grid grid-cols-5 h-16">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -72,12 +72,12 @@ const Sidebar = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center justify-center text-xs font-medium transition-all ${
+                className={`flex flex-col items-center justify-center text-xs font-medium transition-all min-h-[64px] active:bg-gray-100/50 ${
                   isActive ? 'text-teal-600' : 'text-gray-500'
                 }`}
               >
                 <Icon className="w-6 h-6 mb-1" />
-                <span className="text-[10px]">{item.label}</span>
+                <span className="text-[10px] leading-tight">{item.label}</span>
               </Link>
             )
           })}
