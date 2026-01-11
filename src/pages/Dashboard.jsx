@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, isMobileDevice } from '../lib/supabaseClient'
 import { Flame, Droplet, Activity, Calendar } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { motion } from 'framer-motion'
@@ -16,13 +16,12 @@ const Dashboard = () => {
     workouts: 0,
   })
   const [activityData, setActivityData] = useState([])
-  const [loading, setLoading] = useState(true)
+  // INSTANT DASHBOARD: Initialize loading as false - show Dashboard immediately
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [initialLoad, setInitialLoad] = useState(true)
 
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false)
       setError('User not authenticated')
       return
     }
@@ -92,14 +91,7 @@ const Dashboard = () => {
       return
     }
 
-    // MOBILE FIX: Don't show spinner if this is not the initial load and we have cached data
-    const isRefresh = !initialLoad && (stats.calories > 0 || stats.water > 0 || stats.workouts > 0)
-    if (isRefresh) {
-      // Silent refresh - don't show loading spinner
-      console.log('📊 Dashboard: Silent refresh (cached data exists)')
-    } else {
-      setLoading(true)
-    }
+    // INSTANT DASHBOARD: Don't set loading - fetch in background, Dashboard renders immediately
     setError(null)
 
     try {
@@ -107,99 +99,95 @@ const Dashboard = () => {
       today.setHours(0, 0, 0, 0)
       const todayISO = today.toISOString()
       const userId = user.id
+      const isMobile = isMobileDevice()
 
-      // Get today's calories from nutrition table
-      const { data: nutrition, error: nutritionError } = await supabase
-        .from('nutrition')
-        .select('calories')
-        .eq('user_id', userId)
-        .gte('created_at', todayISO)
+      // MOBILE OPTIMIZATION: Reduce initial data rows for mobile
+      const activityDays = isMobile ? 5 : 7 // 5 days for mobile, 7 for desktop
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - activityDays)
+      sevenDaysAgo.setHours(0, 0, 0, 0)
 
-      if (nutritionError && !nutritionError.message?.includes('relation') && !nutritionError.message?.includes('does not exist')) {
-        console.error('Nutrition fetch error:', nutritionError)
+      // PARALLEL DATA FETCHING: Use Promise.allSettled to fetch all data simultaneously
+      // Even if one query is slow, the rest still render
+      const [nutritionResult, workoutResult, waterResult, activityNutritionResult, activityWorkoutResult] = await Promise.allSettled([
+        // Today's nutrition
+        supabase
+          .from('nutrition')
+          .select('calories')
+          .eq('user_id', userId)
+          .gte('created_at', todayISO),
+        
+        // Today's workout logs
+        supabase
+          .from('workout_logs')
+          .select('calories_burned')
+          .eq('user_id', userId)
+          .gte('created_at', todayISO),
+        
+        // Today's water logs
+        supabase
+          .from('water_logs')
+          .select('amount_ml')
+          .eq('user_id', userId)
+          .gte('created_at', todayISO),
+        
+        // Activity nutrition data
+        supabase
+          .from('nutrition')
+          .select('calories, created_at')
+          .eq('user_id', userId)
+          .gte('created_at', sevenDaysAgo.toISOString()),
+        
+        // Activity workout data
+        supabase
+          .from('workout_logs')
+          .select('calories_burned, created_at')
+          .eq('user_id', userId)
+          .gte('created_at', sevenDaysAgo.toISOString()),
+      ])
+
+      // Process nutrition data
+      let totalCalories = 0
+      if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
+        totalCalories = nutritionResult.value.data.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
+      } else if (nutritionResult.status === 'rejected') {
+        console.warn('Nutrition fetch error:', nutritionResult.reason)
       }
 
-      const totalCalories = nutrition?.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
-
-      // Get today's workout logs
-      const { data: workoutLogs, error: workoutError } = await supabase
-        .from('workout_logs')
-        .select('calories_burned')
-        .eq('user_id', userId)
-        .gte('created_at', todayISO)
-
-      if (workoutError) {
-        console.warn('Workout logs fetch error:', workoutError.message)
+      // Process workout data
+      let workoutCalories = 0
+      let workoutCount = 0
+      if (workoutResult.status === 'fulfilled' && workoutResult.value.data) {
+        workoutCalories = workoutResult.value.data.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
+        workoutCount = workoutResult.value.data.length || 0
+      } else if (workoutResult.status === 'rejected') {
+        console.warn('Workout logs fetch error:', workoutResult.reason)
       }
 
-      const workoutCalories = workoutLogs?.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
-      const workoutCount = workoutLogs?.length || 0
-
-      // Get today's water logs
-      const { data: waterLogs, error: waterError } = await supabase
-        .from('water_logs')
-        .select('amount_ml')
-        .eq('user_id', userId)
-        .gte('created_at', todayISO)
-
-      if (waterError) {
-        console.warn('Water logs fetch error:', waterError.message)
+      // Process water data
+      let totalWater = 0
+      if (waterResult.status === 'fulfilled' && waterResult.value.data) {
+        totalWater = waterResult.value.data.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
+      } else if (waterResult.status === 'rejected') {
+        console.warn('Water logs fetch error:', waterResult.reason)
       }
 
-      const totalWater = waterLogs?.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
-
+      // Update stats immediately
       setStats({
         calories: totalCalories + workoutCalories,
         water: totalWater,
         workouts: workoutCount,
       })
 
-      // Load last 7 days activity
-      await loadActivityData(userId)
-      
-      setLoading(false)
-      setInitialLoad(false) // Mark initial load as complete
-    } catch (error) {
-      console.error('Error loading dashboard data:', error)
-      setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`)
-      setLoading(false)
-      setInitialLoad(false)
-    }
-  }
-
-  const loadActivityData = async (userId) => {
-    if (!userId) return
-
-    try {
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      sevenDaysAgo.setHours(0, 0, 0, 0)
-
-      const { data: nutrition, error: nutritionError } = await supabase
-        .from('nutrition')
-        .select('calories, created_at')
-        .eq('user_id', userId)
-        .gte('created_at', sevenDaysAgo.toISOString())
-
-      const { data: workoutLogs, error: workoutError } = await supabase
-        .from('workout_logs')
-        .select('calories_burned, created_at')
-        .eq('user_id', userId)
-        .gte('created_at', sevenDaysAgo.toISOString())
-
-      if (nutritionError && !nutritionError.message?.includes('relation')) {
-        console.error('Nutrition activity error:', nutritionError)
-      }
-
-      if (workoutError && !workoutError.message?.includes('relation')) {
-        console.warn('Workout logs activity error:', workoutError.message)
-      }
+      // Process activity data
+      const nutrition = activityNutritionResult.status === 'fulfilled' ? activityNutritionResult.value.data : []
+      const workoutLogs = activityWorkoutResult.status === 'fulfilled' ? activityWorkoutResult.value.data : []
 
       // Group by date
       const activityMap = {}
       const days = []
 
-      for (let i = 6; i >= 0; i--) {
+      for (let i = activityDays - 1; i >= 0; i--) {
         const date = new Date()
         date.setDate(date.getDate() - i)
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -230,7 +218,8 @@ const Dashboard = () => {
 
       setActivityData(chartData)
     } catch (error) {
-      console.error('Error loading activity data:', error)
+      console.error('Error loading dashboard data:', error)
+      setError(`Failed to load some data: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -258,17 +247,8 @@ const Dashboard = () => {
     },
   ]
 
-  if (loading && initialLoad) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
+  // REMOVED: Full-page loading spinner - Dashboard renders immediately
+  // Only show error if user is not authenticated
   if (error && !user) {
     return (
       <div className="flex items-center justify-center h-64">
