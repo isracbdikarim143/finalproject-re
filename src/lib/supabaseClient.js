@@ -9,15 +9,15 @@ console.log('🔍 Supabase Client Initialization')
 console.log('  - URL exists:', !!supabaseUrl)
 console.log('  - Key exists:', !!supabaseAnonKey)
 
-// Standard Supabase client initialization with session persistence enabled for mobile
+// Standard Supabase client initialization with full session persistence for mobile
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder',
   {
     auth: {
-      persistSession: true, // ENABLED: Required for mobile browsers to remember session
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
+      persistSession: true, // REQUIRED: Mobile browsers need this to hold login state
+      autoRefreshToken: true, // REQUIRED: Mobile browsers need token refresh
+      detectSessionInUrl: true, // REQUIRED: Mobile browsers need URL session detection
       flowType: 'pkce',
       redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://finalproject-re.vercel.app',
     },
@@ -64,4 +64,10 @@ export const checkSupabaseConfig = () => {
   }
 }
 
-console.log('✅ Supabase client initialized with session persistence enabled')
+// Helper function to detect mobile user agent
+export const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+console.log('✅ Supabase client initialized with full session persistence for mobile')

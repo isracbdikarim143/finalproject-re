@@ -8,18 +8,19 @@ const ProtectedRoute = ({ children }) => {
   const [sessionChecked, setSessionChecked] = useState(false)
   const [hasSession, setHasSession] = useState(false)
 
-  // Additional session check for mobile browsers
+  // Additional session check for mobile browsers with 500ms delay
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Small delay to allow AuthContext to initialize
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // MOBILE FIX: 500ms delay gives mobile browsers enough time to initialize Supabase client and retrieve token from storage
+        await new Promise(resolve => setTimeout(resolve, 500))
         
         const { data: { session }, error } = await supabase.auth.getSession()
         if (error) {
           console.error('ProtectedRoute: Session check error:', error)
           setHasSession(false)
         } else {
+          console.log('ProtectedRoute: Session check result:', !!session)
           setHasSession(!!session)
         }
       } catch (err) {
@@ -33,7 +34,7 @@ const ProtectedRoute = ({ children }) => {
     checkSession()
   }, [])
 
-  // Show loading state while checking
+  // Show loading state while checking (including the 500ms delay)
   if (loading || !sessionChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-teal-50">
