@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
@@ -18,32 +18,11 @@ const Dashboard = () => {
   const [activityData, setActivityData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  
-  // Use refs to track component mount status
-  const isMountedRef = useRef(true)
-  const channelsRef = useRef([])
-
-  useEffect(() => {
-    isMountedRef.current = true
-    
-    return () => {
-      // Cleanup on unmount only
-      isMountedRef.current = false
-      
-      // Remove all real-time channels
-      channelsRef.current.forEach(channel => {
-        supabase.removeChannel(channel)
-      })
-      channelsRef.current = []
-    }
-  }, [])
 
   useEffect(() => {
     if (!user?.id) {
-      if (isMountedRef.current) {
-        setLoading(false)
-        setError('User not authenticated')
-      }
+      setLoading(false)
+      setError('User not authenticated')
       return
     }
 
@@ -61,9 +40,7 @@ const Dashboard = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          if (isMountedRef.current) {
-            loadDashboardData()
-          }
+          loadDashboardData()
         }
       )
       .subscribe()
@@ -80,9 +57,7 @@ const Dashboard = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          if (isMountedRef.current) {
-            loadDashboardData()
-          }
+          loadDashboardData()
         }
       )
       .subscribe()
@@ -99,107 +74,71 @@ const Dashboard = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          if (isMountedRef.current) {
-            loadDashboardData()
-          }
+          loadDashboardData()
         }
       )
       .subscribe()
 
-    channelsRef.current = [nutritionChannel, workoutChannel, waterChannel]
-
     return () => {
-      // Cleanup channels on user change
-      if (nutritionChannel) supabase.removeChannel(nutritionChannel)
-      if (workoutChannel) supabase.removeChannel(workoutChannel)
-      if (waterChannel) supabase.removeChannel(waterChannel)
-      channelsRef.current = []
+      supabase.removeChannel(nutritionChannel)
+      supabase.removeChannel(workoutChannel)
+      supabase.removeChannel(waterChannel)
     }
   }, [user?.id])
 
   const loadDashboardData = async () => {
-    if (!user?.id || !isMountedRef.current) {
+    if (!user?.id) {
       return
     }
 
     try {
-      if (isMountedRef.current) {
-        setLoading(true)
-        setError(null)
-      }
+      setLoading(true)
+      setError(null)
 
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const todayISO = today.toISOString()
-
-      // Get user ID from auth context
       const userId = user.id
 
       // Get today's calories from nutrition table
-      const nutritionQuery = supabase
+      const { data: nutrition, error: nutritionError } = await supabase
         .from('nutrition')
         .select('calories')
         .eq('user_id', userId)
         .gte('created_at', todayISO)
 
-      const { data: nutrition, error: nutritionError } = await nutritionQuery
-
-      if (nutritionError) {
+      if (nutritionError && !nutritionError.message?.includes('relation') && !nutritionError.message?.includes('does not exist')) {
         console.error('Nutrition fetch error:', nutritionError)
-        if (!nutritionError.message?.includes('relation') && !nutritionError.message?.includes('does not exist')) {
-          throw nutritionError
-        }
-      }
-
-      // Check if component is still mounted before continuing
-      if (!isMountedRef.current) {
-        return
       }
 
       const totalCalories = nutrition?.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
 
       // Get today's workout logs
-      const workoutQuery = supabase
+      const { data: workoutLogs, error: workoutError } = await supabase
         .from('workout_logs')
         .select('calories_burned')
         .eq('user_id', userId)
         .gte('created_at', todayISO)
 
-      const { data: workoutLogs, error: workoutError } = await workoutQuery
-
       if (workoutError) {
-        console.warn('Workout logs fetch error (table might not exist):', workoutError.message)
-        // Continue with other data if table doesn't exist
-      }
-
-      // Check if component is still mounted before continuing
-      if (!isMountedRef.current) {
-        return
+        console.warn('Workout logs fetch error:', workoutError.message)
       }
 
       const workoutCalories = workoutLogs?.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
       const workoutCount = workoutLogs?.length || 0
 
       // Get today's water logs
-      const waterQuery = supabase
+      const { data: waterLogs, error: waterError } = await supabase
         .from('water_logs')
         .select('amount_ml')
         .eq('user_id', userId)
         .gte('created_at', todayISO)
 
-      const { data: waterLogs, error: waterError } = await waterQuery
-
       if (waterError) {
-        console.warn('Water logs fetch error (table might not exist):', waterError.message)
-        // Continue with other data if table doesn't exist
+        console.warn('Water logs fetch error:', waterError.message)
       }
 
       const totalWater = waterLogs?.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
-
-      // Check if component is still mounted before updating state
-      if (!isMountedRef.current) {
-        return
-      }
 
       setStats({
         calories: totalCalories + workoutCalories,
@@ -210,30 +149,16 @@ const Dashboard = () => {
       // Load last 7 days activity
       await loadActivityData(userId)
       
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
+      setLoading(false)
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error loading dashboard data:', error)
-      
-      // Only update state if component is still mounted
-      if (isMountedRef.current) {
-        const errorMessage = error.message || 'Unknown error'
-        setError(`Failed to load dashboard data: ${errorMessage}`)
-        setLoading(false)
-        toast.error(`Failed to load dashboard data: ${errorMessage}`)
-      }
+      setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`)
+      setLoading(false)
     }
   }
 
   const loadActivityData = async (userId) => {
-    if (!userId || !isMountedRef.current) return
+    if (!userId) return
 
     try {
       const sevenDaysAgo = new Date()
@@ -293,20 +218,9 @@ const Dashboard = () => {
         calories: activityMap[day] || 0,
       }))
 
-      if (isMountedRef.current) {
-        setActivityData(chartData)
-      }
+      setActivityData(chartData)
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Activity data request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error loading activity data:', error)
-      if (isMountedRef.current) {
-        toast.error('Failed to load activity data')
-      }
     }
   }
 

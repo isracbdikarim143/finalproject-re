@@ -116,19 +116,12 @@ const Nutrition = () => {
 
       if (waterError) {
         console.warn('Water logs error (table might not exist):', waterError)
-        // Don't throw - water_logs table might not exist yet
         setWaterAmount(0)
       } else {
         const totalWater = waterData?.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
         setWaterAmount(totalWater)
       }
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error loading logs:', error)
       toast.error(`Failed to load nutrition logs: ${error.message || 'Unknown error'}`)
     } finally {
@@ -154,12 +147,6 @@ const Nutrition = () => {
       toast.success(`✅ ${food.name} logged!`)
       setSelectedFood(null)
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error logging food:', error)
       toast.error('Failed to log food')
     }
@@ -173,12 +160,6 @@ const Nutrition = () => {
 
       toast.success('Food log deleted')
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error deleting log:', error)
       toast.error('Failed to delete log')
     }
@@ -201,7 +182,6 @@ const Nutrition = () => {
 
       if (error) {
         console.error('Water log error:', error)
-        // Check if table doesn't exist
         if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
           toast.error('water_logs table not found. Please create it in Supabase.')
           console.error('SUPABASE FIX: Create water_logs table with columns: id (uuid, primary key, default uuid_generate_v4()), user_id (uuid, references auth.users(id)), amount_ml (integer), created_at (timestamp, default now())')
@@ -213,16 +193,9 @@ const Nutrition = () => {
 
       if (data && data.length > 0) {
         toast.success('✅ 250ml water added!')
-        // Reload today's logs to update water amount
         await loadTodayLogs()
       }
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Water log request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error adding water:', error)
       toast.error(`Failed to log water: ${error.message || 'Unknown error'}`)
     }

@@ -50,12 +50,6 @@ const Profile = () => {
         setAvatarUrl(null)
       }
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Avatar URL request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error loading avatar URL:', error)
       setAvatarUrl(null)
     }
@@ -88,12 +82,6 @@ const Profile = () => {
         throw result.error
       }
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Profile save request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Error saving profile:', error)
       toast.error(`Failed to save profile: ${error.message || 'Unknown error'}`)
     } finally {
@@ -123,12 +111,6 @@ const Profile = () => {
           fileInputRef.current.click()
         }
       } catch (error) {
-        // Silently ignore AbortError - it's expected when component unmounts
-        if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-          console.log('Camera permission request aborted (component unmounted)')
-          return
-        }
-        
         console.error('Camera permission denied or unavailable:', error)
         toast.error('Camera access denied. Please allow camera permission or use Gallery instead.', { duration: 5000 })
         setShowImageSourceModal(true) // Re-open modal so user can choose gallery
@@ -314,13 +296,6 @@ USING (bucket_id = 'avatars');
       toast.success('Profile updated! ✅', { id: uploadingToast })
 
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Avatar upload request aborted (component unmounted)')
-        toast.dismiss(uploadingToast)
-        return
-      }
-      
       console.error('Error uploading avatar:', error)
       const errorMsg = error.message || 'Unknown error occurred during upload'
       toast.error(`Failed to upload image: ${errorMsg}`, { id: uploadingToast })
@@ -360,12 +335,6 @@ USING (bucket_id = 'avatars');
       await signOut()
       navigate('/login')
     } catch (error) {
-      // Silently ignore AbortError - it's expected when component unmounts
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.log('Logout request aborted (component unmounted)')
-        return
-      }
-      
       console.error('Logout error:', error)
     }
   }

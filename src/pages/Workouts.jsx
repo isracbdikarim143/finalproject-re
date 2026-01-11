@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { workouts } from '../data/workouts'
@@ -15,30 +15,13 @@ const Workouts = () => {
   const [loading, setLoading] = useState(true)
   const [completingId, setCompletingId] = useState(null)
   const [error, setError] = useState(null)
-  
-  // Use refs to track component mount status
-  const isMountedRef = useRef(true)
-  const channelRef = useRef(null)
 
   const categories = ['All', 'Chest', 'Legs', 'Abs', 'Cardio', 'Arms']
 
   useEffect(() => {
-    isMountedRef.current = true
-    
-    return () => {
-      isMountedRef.current = false
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
     if (!user?.id) {
-      if (isMountedRef.current) {
-        setLoading(false)
-        setError('User not authenticated')
-      }
+      setLoading(false)
+      setError('User not authenticated')
       return
     }
 
@@ -56,37 +39,27 @@ const Workouts = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          if (isMountedRef.current) {
-            loadTodayWorkouts()
-          }
+          loadTodayWorkouts()
         }
       )
       .subscribe()
 
-    channelRef.current = channel
-
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel)
-        channelRef.current = null
-      }
+      supabase.removeChannel(channel)
     }
   }, [user?.id])
 
   const loadTodayWorkouts = async () => {
-    if (!user?.id || !isMountedRef.current) {
+    if (!user?.id) {
       return
     }
 
     try {
-      if (isMountedRef.current) {
-        setLoading(true)
-        setError(null)
-      }
+      setLoading(true)
+      setError(null)
 
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-
       const userId = user.id
 
       const { data, error: fetchError } = await supabase
@@ -98,45 +71,34 @@ const Workouts = () => {
 
       if (fetchError) {
         console.error('Error loading workout logs:', fetchError)
-        // Check if table doesn't exist
         if (
           fetchError.code === 'PGRST116' ||
           fetchError.message?.includes('relation') ||
           fetchError.message?.includes('does not exist')
         ) {
           const errorMsg = 'workout_logs table not found. Please create it in Supabase.'
-          if (isMountedRef.current) {
-            setError(errorMsg)
-            toast.error(errorMsg)
-            console.error(
-              'SUPABASE FIX: Create workout_logs table with columns: id (uuid, primary key, default uuid_generate_v4()), user_id (uuid, references auth.users(id)), workout_type (text), duration_mins (integer), calories_burned (integer), created_at (timestamp, default now())'
-            )
-          }
-        } else {
-          throw fetchError
-        }
-        
-        if (isMountedRef.current) {
+          setError(errorMsg)
+          toast.error(errorMsg)
+          console.error(
+            'SUPABASE FIX: Create workout_logs table with columns: id (uuid, primary key, default uuid_generate_v4()), user_id (uuid, references auth.users(id)), workout_type (text), duration_mins (integer), calories_burned (integer), created_at (timestamp, default now())'
+          )
           setTodayWorkouts([])
           setCompletedWorkouts([])
           setLoading(false)
+          return
+        } else {
+          throw fetchError
         }
-        return
       }
 
-      if (isMountedRef.current) {
-        setTodayWorkouts(data || [])
-        setCompletedWorkouts(data?.map((w) => w.workout_type || w.workout_name || w.name) || [])
-        setLoading(false)
-      }
+      setTodayWorkouts(data || [])
+      setCompletedWorkouts(data?.map((w) => w.workout_type || w.workout_name || w.name) || [])
+      setLoading(false)
     } catch (error) {
       console.error('Error loading workouts:', error)
-      const errorMsg = `Failed to load workouts: ${error.message || 'Unknown error'}`
-      if (isMountedRef.current) {
-        setError(errorMsg)
-        toast.error(errorMsg)
-        setLoading(false)
-      }
+      setError(`Failed to load workouts: ${error.message || 'Unknown error'}`)
+      toast.error(`Failed to load workouts: ${error.message || 'Unknown error'}`)
+      setLoading(false)
     }
   }
 
@@ -147,7 +109,7 @@ const Workouts = () => {
     }
 
     if (completingId === workout.id) {
-      return // Already processing
+      return
     }
 
     try {
@@ -167,7 +129,6 @@ const Workouts = () => {
 
       if (insertError) {
         console.error('Error completing workout:', insertError)
-        // Check if table doesn't exist
         if (
           insertError.code === 'PGRST116' ||
           insertError.message?.includes('relation') ||
@@ -189,7 +150,6 @@ const Workouts = () => {
 
       if (data && data.length > 0) {
         toast.success(`Great Job! ✅ You completed ${workout.name}!`)
-        // Refresh the workout list
         await loadTodayWorkouts()
       } else {
         toast.error('Workout logged but no data returned')
