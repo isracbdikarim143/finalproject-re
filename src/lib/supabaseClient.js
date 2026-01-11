@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Strictly read environment variables using import.meta.env (Vite standard)
+// STRICT VALIDATION: Check environment variables FIRST before any initialization
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
@@ -14,35 +14,14 @@ console.log('  - import.meta.env.MODE:', import.meta.env.MODE)
 console.log('  - import.meta.env.PROD:', import.meta.env.PROD)
 console.log('  - import.meta.env.DEV:', import.meta.env.DEV)
 
-// Simplified redirect URL function - returns window.location.origin if available
-const getRedirectUrl = () => {
-  if (typeof window !== 'undefined') {
-    return window.location.origin
-  }
-  return 'https://finalproject-re.vercel.app'
-}
+// STRICT VALIDATION: Check if credentials are missing
+const credentialsMissing = !supabaseUrl || !supabaseAnonKey
 
-// Comprehensive environment variable check with detailed logging
-const envCheck = {
-  mode: import.meta.env.MODE,
-  prod: import.meta.env.PROD,
-  dev: import.meta.env.DEV,
-  urlExists: !!supabaseUrl,
-  keyExists: !!supabaseAnonKey,
-  urlLength: supabaseUrl?.length || 0,
-  keyLength: supabaseAnonKey?.length || 0,
-  urlValue: supabaseUrl ? `${supabaseUrl.substring(0, 40)}...` : 'undefined',
-  redirectUrl: typeof window !== 'undefined' ? window.location.origin : getRedirectUrl(),
-}
-
-console.log('🔍 Supabase Environment Check:', envCheck)
-
-// Strict environment variable validation
-if (!supabaseUrl || !supabaseAnonKey) {
-  const errorMsg = '❌ CRITICAL: Supabase environment variables are missing!'
-  console.error('='.repeat(60))
+if (credentialsMissing) {
+  const errorMsg = '❌ CRITICAL ERROR: Supabase credentials missing!'
+  console.error('='.repeat(80))
   console.error(errorMsg)
-  console.error('='.repeat(60))
+  console.error('='.repeat(80))
   console.error('VITE_SUPABASE_URL:', supabaseUrl ? `✅ Set (${supabaseUrl.substring(0, 40)}...)` : '❌ MISSING')
   console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ Set (hidden for security)' : '❌ MISSING')
   console.error('')
@@ -54,73 +33,83 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('   5. Add: VITE_SUPABASE_ANON_KEY (your Supabase anon key)')
   console.error('   6. Enable for: Production, Preview, AND Development')
   console.error('   7. Click "Save" and redeploy your application')
-  console.error('')
-  console.error('Current redirect URL:', getRedirectUrl())
-  console.error('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'N/A (SSR)')
-  console.error('='.repeat(60))
+  console.error('='.repeat(80))
+}
+
+// Simplified redirect URL function
+const getRedirectUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+  return 'https://finalproject-re.vercel.app'
+}
+
+// Create Supabase client - use placeholder if credentials missing
+let supabase
+let isSupabaseConfigured = false
+
+if (credentialsMissing) {
+  // Create placeholder client that will fail gracefully
+  console.error('⚠️ Creating placeholder Supabase client - database will NOT work!')
+  supabase = createClient(
+    'https://placeholder.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder',
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  )
   
-  if (import.meta.env.PROD) {
-    console.error('⚠️ Production build detected. Database connection will FAIL without these variables!')
-  }
+  // Mark client as invalid
+  supabase._invalid = true
+  supabase._error = 'Supabase credentials missing'
+  isSupabaseConfigured = false
 } else {
-  console.log('✅ Supabase environment variables are configured correctly')
-  console.log('📍 Supabase URL:', supabaseUrl.substring(0, 40) + '...')
-  console.log('📍 Redirect URL:', typeof window !== 'undefined' ? window.location.origin : getRedirectUrl())
-}
-
-// Validate URL format
-if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
-  console.error('❌ Invalid Supabase URL format. Must start with https://')
-  console.error('Current URL:', supabaseUrl)
-}
-
-// Validate key format (should be a JWT token)
-if (supabaseAnonKey && !supabaseAnonKey.startsWith('eyJ')) {
-  console.warn('⚠️ Supabase anon key format may be incorrect. Expected JWT token starting with "eyJ"')
-}
-
-// Create Supabase client with fallback (TEMPORARY - for debugging)
-const finalSupabaseUrl = supabaseUrl || 'https://placeholder.supabase.co'
-const finalSupabaseKey = supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder'
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Cannot initialize Supabase client: Missing required environment variables')
-  console.error('⚠️ Using placeholder values - database will NOT work!')
-}
-
-export const supabase = createClient(
-  finalSupabaseUrl,
-  finalSupabaseKey,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce',
-      redirectTo: typeof window !== 'undefined' ? window.location.origin : getRedirectUrl(),
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'healthhub@1.0.0',
+  // Credentials are valid - create real client
+  console.log('✅ Supabase credentials validated - initializing client...')
+  supabase = createClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : getRedirectUrl(),
       },
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
+      global: {
+        headers: {
+          'X-Client-Info': 'healthhub@1.0.0',
+        },
       },
-    },
-  }
-)
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    }
+  )
+  supabase._invalid = false
+  isSupabaseConfigured = true
+  console.log('✅ Supabase client initialized successfully')
+}
+
+// Export the client
+export { supabase }
+export { isSupabaseConfigured }
 
 // Test connection function
 export const testConnection = async () => {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (credentialsMissing) {
     return {
       success: false,
-      error: 'Environment variables are missing',
+      error: 'Supabase credentials missing',
       details: {
-        urlConfigured: !!supabaseUrl,
-        keyConfigured: !!supabaseAnonKey,
+        urlConfigured: false,
+        keyConfigured: false,
       },
     }
   }
@@ -140,9 +129,21 @@ export const testConnection = async () => {
   }
 }
 
+// Export validation function
+export const validateSupabaseConfig = () => {
+  return {
+    valid: !credentialsMissing,
+    urlConfigured: !!supabaseUrl,
+    keyConfigured: !!supabaseAnonKey,
+    url: supabaseUrl ? `${supabaseUrl.substring(0, 40)}...` : 'Not set',
+    error: credentialsMissing ? 'Supabase credentials missing' : null,
+  }
+}
+
 // Export a check function for debugging
 export const checkSupabaseConfig = () => {
   return {
+    valid: !credentialsMissing,
     urlConfigured: !!supabaseUrl,
     keyConfigured: !!supabaseAnonKey,
     url: supabaseUrl ? `${supabaseUrl.substring(0, 40)}...` : 'Not set',

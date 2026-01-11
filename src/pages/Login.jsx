@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { isSupabaseConfigured, checkSupabaseConfig } from '../lib/supabaseClient'
 import { Mail, Lock, LogIn } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -12,9 +13,31 @@ const Login = () => {
   const { signIn } = useAuth()
   const navigate = useNavigate()
 
+  // Check Supabase configuration on mount
+  useEffect(() => {
+    const config = checkSupabaseConfig()
+    if (!config.valid) {
+      console.error('❌ Login: Supabase not configured')
+      setError('Database connection failed. Please check Vercel environment variables.')
+      setLoading(false)
+    } else {
+      console.log('✅ Login: Supabase configured correctly')
+    }
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     console.log('🔐 Login form submitted')
+    
+    // Check Supabase configuration before attempting login
+    const config = checkSupabaseConfig()
+    if (!config.valid || !isSupabaseConfigured) {
+      console.error('❌ Login: Supabase credentials missing')
+      setError('Database connection failed. Please check Vercel environment variables.')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -42,6 +65,8 @@ const Login = () => {
         // Error is already shown via toast in AuthContext
         if (result.error.message?.includes('Network error') || result.error.message?.includes('Failed to fetch')) {
           setError('Cannot connect to database. Please check your connection and Vercel settings.')
+        } else if (result.error.message?.includes('credentials missing') || result.error.code === 'ENV_MISSING') {
+          setError('Database connection failed. Please check Vercel environment variables.')
         } else if (result.error.type === 'EMAIL_NOT_CONFIRMED') {
           setError('Please check your email and confirm your account before logging in.')
         } else {
@@ -72,7 +97,13 @@ const Login = () => {
       setLoading(false)
     } catch (err) {
       console.error('❌ Login form exception:', err)
-      setError('An unexpected error occurred. Please try again.')
+      
+      // Check if it's a Supabase config error
+      if (err?.message?.includes('credentials missing') || err?.code === 'ENV_MISSING') {
+        setError('Database connection failed. Please check Vercel environment variables.')
+      } else {
+        setError('An unexpected error occurred. Please try again.')
+      }
       setLoading(false)
     }
   }
