@@ -9,14 +9,14 @@ console.log('🔍 Supabase Client Initialization')
 console.log('  - URL exists:', !!supabaseUrl)
 console.log('  - Key exists:', !!supabaseAnonKey)
 
-// Standard Supabase client initialization
+// Standard Supabase client initialization with session persistence enabled for mobile
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder',
   {
     auth: {
-      persistSession: false, // TEMPORARY: Disabled for testing
-      autoRefreshToken: false,
+      persistSession: true, // ENABLED: Required for mobile browsers to remember session
+      autoRefreshToken: true,
       detectSessionInUrl: true,
       flowType: 'pkce',
       redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://finalproject-re.vercel.app',
@@ -64,4 +64,4 @@ export const checkSupabaseConfig = () => {
   }
 }
 
-console.log('✅ Supabase client initialized')
+console.log('✅ Supabase client initialized with session persistence enabled')

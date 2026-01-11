@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabaseClient'
 import { Mail, Lock, LogIn } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -33,9 +34,26 @@ const Login = () => {
       }
 
       if (result.user && !result.error) {
-        console.log('✅ Login successful, redirecting...')
-        // Force fresh page load with window.location.href
-        window.location.href = '/dashboard'
+        console.log('✅ Login successful, refreshing session...')
+        
+        // Force session refresh to ensure it's active in browser memory (especially for mobile)
+        try {
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+          if (sessionError) {
+            console.error('Session refresh error:', sessionError)
+          } else {
+            console.log('✅ Session refreshed successfully:', !!sessionData?.session)
+          }
+        } catch (sessionErr) {
+          console.error('Session refresh exception:', sessionErr)
+        }
+        
+        // Small delay to ensure session is fully established
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        console.log('🧭 Redirecting to dashboard...')
+        // Use replace instead of href to prevent back-button and cache issues
+        window.location.replace('/dashboard')
         return
       }
 
