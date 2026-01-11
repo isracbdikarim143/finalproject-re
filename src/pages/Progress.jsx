@@ -68,13 +68,17 @@ const Progress = () => {
       thirtyDaysAgo.setHours(0, 0, 0, 0)
 
       const { data: workouts, error: workoutError } = await supabase
-        .from('workouts')
+        .from('workout_logs')
         .select('*')
         .eq('user_id', user.id)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true })
 
-      if (workoutError) throw workoutError
+      // Handle workout error gracefully - table might not exist
+      if (workoutError) {
+        console.warn('Workout logs error (table might not exist):', workoutError)
+        // Continue with empty workouts array
+      }
 
       // Load nutrition statistics
       const { data: nutrition, error: nutritionError } = await supabase
@@ -84,11 +88,15 @@ const Progress = () => {
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true })
 
-      if (nutritionError) throw nutritionError
+      // Handle nutrition error gracefully - table might not exist
+      if (nutritionError) {
+        console.warn('Nutrition error (table might not exist):', nutritionError)
+        // Continue with empty nutrition array
+      }
 
       // Process workout stats by date
       const workoutMap = {}
-      workouts?.forEach((workout) => {
+      ;(workouts || []).forEach((workout) => {
         const date = new Date(workout.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (!workoutMap[date]) {
           workoutMap[date] = { date, workouts: 0, calories: 0 }
@@ -99,7 +107,7 @@ const Progress = () => {
 
       // Process nutrition stats by date
       const nutritionMap = {}
-      nutrition?.forEach((item) => {
+      ;(nutrition || []).forEach((item) => {
         const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (!nutritionMap[date]) {
           nutritionMap[date] = { date, calories: 0, protein: 0, carbs: 0, fat: 0 }
@@ -125,9 +133,9 @@ const Progress = () => {
       setNutritionStats(Object.values(nutritionMap).slice(-7)) // Last 7 days
 
       // Calculate milestones
-      const totalWorkouts = workouts?.length || 0
-      const totalCalories = workouts?.reduce((sum, w) => sum + (w.calories_burned || 0), 0) || 0
-      const totalDaysActive = new Set(workouts?.map((w) => new Date(w.created_at).toDateString()) || []).size
+      const totalWorkouts = (workouts || []).length
+      const totalCalories = (workouts || []).reduce((sum, w) => sum + (w.calories_burned || 0), 0)
+      const totalDaysActive = new Set((workouts || []).map((w) => new Date(w.created_at).toDateString())).size
 
       const newMilestones = []
       if (totalWorkouts >= 10) newMilestones.push({ icon: Award, label: '10 Workouts Completed', color: 'from-green-500 to-emerald-500' })
@@ -149,7 +157,14 @@ const Progress = () => {
       }
     } catch (error) {
       console.error('Error loading progress data:', error)
-      toast.error('Failed to load progress data')
+      // Only show error toast for critical errors, not for missing tables
+      if (error.code !== 'PGRST116' && !error.message?.includes('relation') && !error.message?.includes('does not exist')) {
+        toast.error('Failed to load progress data')
+      }
+      // Set empty arrays on error
+      setWorkoutStats([])
+      setNutritionStats([])
+      setMilestones([])
     } finally {
       setLoading(false)
     }
@@ -199,7 +214,12 @@ const Progress = () => {
           {profile?.height_cm && profile?.weight_kg ? (
             <>
               <p className="text-3xl font-bold text-teal-600">
-                {(profile.weight_kg / ((profile.height_cm / 100) ** 2)).toFixed(1)}
+                {(() => {
+                  const heightM = parseFloat(profile.height_cm) / 100
+                  const weightKg = parseFloat(profile.weight_kg)
+                  const bmi = weightKg / (heightM * heightM)
+                  return bmi.toFixed(1)
+                })()}
               </p>
               <p className="text-sm text-gray-500 mt-1">Height: {profile.height_cm}cm, Weight: {profile.weight_kg}kg</p>
             </>

@@ -93,12 +93,36 @@ const Profile = () => {
     setShowImageSourceModal(true)
   }
 
-  const handleCameraClick = () => {
+  const handleCameraClick = async () => {
     setShowImageSourceModal(false)
-    // Trigger file input with camera capture
-    if (fileInputRef.current) {
-      fileInputRef.current.setAttribute('capture', 'user')
-      fileInputRef.current.click()
+    
+    // Check if getUserMedia is available (for browsers that support it)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        // Request camera permission first
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop())
+        
+        // Now trigger file input with camera capture
+        if (fileInputRef.current) {
+          fileInputRef.current.setAttribute('capture', 'user')
+          fileInputRef.current.setAttribute('accept', 'image/*')
+          fileInputRef.current.click()
+        }
+      } catch (error) {
+        console.error('Camera permission denied or unavailable:', error)
+        toast.error('Camera access denied. Please allow camera permission or use Gallery instead.', { duration: 5000 })
+        setShowImageSourceModal(true) // Re-open modal so user can choose gallery
+      }
+    } else {
+      // Fallback for browsers that don't support getUserMedia
+      // Just use the file input with capture attribute
+      if (fileInputRef.current) {
+        fileInputRef.current.setAttribute('capture', 'user')
+        fileInputRef.current.setAttribute('accept', 'image/*')
+        fileInputRef.current.click()
+      }
     }
   }
 
@@ -107,6 +131,7 @@ const Profile = () => {
     // Trigger file input without camera capture (gallery)
     if (fileInputRef.current) {
       fileInputRef.current.removeAttribute('capture')
+      fileInputRef.current.setAttribute('accept', 'image/*')
       fileInputRef.current.click()
     }
   }
