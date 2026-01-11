@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase, isMobileDevice } from '../lib/supabaseClient'
-import { Mail, Lock, LogIn } from 'lucide-react'
+import { Mail, Lock, LogIn, RefreshCw } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const Login = () => {
@@ -101,6 +101,10 @@ const Login = () => {
     }
   }
 
+  const handleRetryConnection = () => {
+    window.location.reload()
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-teal-50 p-3 md:p-4 sm:p-6">
       <motion.div
@@ -121,9 +125,13 @@ const Login = () => {
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 md:p-4 mb-4">
                 <p className="text-red-600 text-xs sm:text-sm font-medium">{error}</p>
                 {error.includes('Cannot connect') && (
-                  <p className="text-red-500 text-xs mt-2">
-                    Check browser console (F12) for diagnostic details.
-                  </p>
+                  <button
+                    onClick={handleRetryConnection}
+                    className="mt-3 w-full bg-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Retry Connection
+                  </button>
                 )}
               </div>
             )}

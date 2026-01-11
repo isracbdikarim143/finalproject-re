@@ -1,19 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Read environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+let supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+// MOBILE FIX: Force HTTPS protocol - mobile browsers sometimes strip the protocol
+if (supabaseUrl && typeof supabaseUrl === 'string') {
+  // Remove any existing protocol
+  supabaseUrl = supabaseUrl.replace(/^https?:\/\//, '')
+  // Force HTTPS
+  supabaseUrl = `https://${supabaseUrl}`
+  console.log('🔒 MOBILE FIX: Forced HTTPS protocol for Supabase URL')
+}
 
 // Simple logging
 console.log('🔍 Supabase Client Initialization')
 console.log('  - URL exists:', !!supabaseUrl)
 console.log('  - Key exists:', !!supabaseAnonKey)
-
-// MOBILE FIX: Validate URL format - ensure it starts with https://
-const isValidUrl = supabaseUrl && typeof supabaseUrl === 'string' && supabaseUrl.startsWith('https://')
-if (!isValidUrl && supabaseUrl) {
-  console.error('⚠️ WARNING: VITE_SUPABASE_URL does not start with https://', supabaseUrl.substring(0, 50))
-}
+console.log('  - URL starts with https://:', supabaseUrl?.startsWith('https://'))
 
 // Helper function to detect mobile user agent
 export const isMobileDevice = () => {
@@ -24,7 +28,7 @@ export const isMobileDevice = () => {
 // MOBILE FIX: Force localStorage for mobile browsers (more reliable than cookies)
 const storage = typeof window !== 'undefined' ? window.localStorage : null
 
-// Standard Supabase client initialization with full session persistence for mobile
+// Standard Supabase client initialization with mobile-optimized settings
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder',
@@ -33,7 +37,7 @@ export const supabase = createClient(
       persistSession: true, // REQUIRED: Mobile browsers need this to hold login state
       autoRefreshToken: true, // REQUIRED: Mobile browsers need token refresh
       detectSessionInUrl: true, // REQUIRED: Mobile browsers need URL session detection
-      flowType: 'pkce', // MOBILE FIX: PKCE is more reliable for mobile browsers (cross-origin auth)
+      flowType: 'implicit', // MOBILE FIX: 'implicit' flow is more successful on mobile browsers that block complex redirects
       redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://finalproject-re.vercel.app',
       storage: storage, // EXPLICIT: Force localStorage for mobile reliability
       storageKey: 'sb-auth-token', // Default key, but explicit for clarity
@@ -41,6 +45,7 @@ export const supabase = createClient(
     global: {
       headers: {
         'X-Client-Info': 'healthhub@1.0.0',
+        'x-my-custom-header': 'my-app', // MOBILE FIX: Custom header can bypass mobile ISP 'transparent proxies' that interfere with database traffic
       },
       // MOBILE FIX: Increase fetch timeout to 15 seconds for mobile networks
       fetch: (url, options = {}) => {
@@ -105,8 +110,8 @@ export const checkSupabaseConfig = () => {
     isProduction: import.meta.env.PROD,
     mode: import.meta.env.MODE,
     isMobile: isMobileDevice(),
-    urlValid: isValidUrl,
+    urlValid: supabaseUrl?.startsWith('https://'),
   }
 }
 
-console.log('✅ Supabase client initialized with localStorage persistence and PKCE flow for mobile')
+console.log('✅ Supabase client initialized with implicit flow and mobile optimizations')
