@@ -9,6 +9,12 @@ console.log('🔍 Supabase Client Initialization')
 console.log('  - URL exists:', !!supabaseUrl)
 console.log('  - Key exists:', !!supabaseAnonKey)
 
+// MOBILE FIX: Validate URL format - ensure it starts with https://
+const isValidUrl = supabaseUrl && typeof supabaseUrl === 'string' && supabaseUrl.startsWith('https://')
+if (!isValidUrl && supabaseUrl) {
+  console.error('⚠️ WARNING: VITE_SUPABASE_URL does not start with https://', supabaseUrl.substring(0, 50))
+}
+
 // Helper function to detect mobile user agent
 export const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -16,7 +22,6 @@ export const isMobileDevice = () => {
 }
 
 // MOBILE FIX: Force localStorage for mobile browsers (more reliable than cookies)
-// Supabase uses localStorage by default, but we ensure it's explicitly set
 const storage = typeof window !== 'undefined' ? window.localStorage : null
 
 // Standard Supabase client initialization with full session persistence for mobile
@@ -28,7 +33,7 @@ export const supabase = createClient(
       persistSession: true, // REQUIRED: Mobile browsers need this to hold login state
       autoRefreshToken: true, // REQUIRED: Mobile browsers need token refresh
       detectSessionInUrl: true, // REQUIRED: Mobile browsers need URL session detection
-      flowType: 'pkce',
+      flowType: 'pkce', // MOBILE FIX: PKCE is more reliable for mobile browsers (cross-origin auth)
       redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://finalproject-re.vercel.app',
       storage: storage, // EXPLICIT: Force localStorage for mobile reliability
       storageKey: 'sb-auth-token', // Default key, but explicit for clarity
@@ -36,6 +41,32 @@ export const supabase = createClient(
     global: {
       headers: {
         'X-Client-Info': 'healthhub@1.0.0',
+      },
+      // MOBILE FIX: Increase fetch timeout to 15 seconds for mobile networks
+      fetch: (url, options = {}) => {
+        const isMobile = isMobileDevice()
+        const timeout = isMobile ? 15000 : 10000 // 15 seconds for mobile, 10 for desktop
+        
+        // Create AbortController for timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
+        
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        })
+          .then(response => {
+            clearTimeout(timeoutId)
+            return response
+          })
+          .catch(error => {
+            clearTimeout(timeoutId)
+            if (error.name === 'AbortError') {
+              console.error('⏱️ Supabase request timeout after', timeout, 'ms')
+              throw new Error(`Request timeout after ${timeout}ms. Please check your connection.`)
+            }
+            throw error
+          })
       },
     },
     realtime: {
@@ -74,7 +105,8 @@ export const checkSupabaseConfig = () => {
     isProduction: import.meta.env.PROD,
     mode: import.meta.env.MODE,
     isMobile: isMobileDevice(),
+    urlValid: isValidUrl,
   }
 }
 
-console.log('✅ Supabase client initialized with localStorage persistence for mobile')
+console.log('✅ Supabase client initialized with localStorage persistence and PKCE flow for mobile')

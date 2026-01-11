@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, isMobileDevice } from '../lib/supabaseClient'
 import { Mail, Lock, LogIn } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -19,10 +19,32 @@ const Login = () => {
 
     try {
       console.log('🔐 Login attempt started')
+      console.log('📱 Device type:', isMobileDevice() ? 'Mobile' : 'Desktop')
+      
+      // DIAGNOSTIC MODE: Check Supabase configuration before login
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      console.log('🔍 Supabase Config Check:')
+      console.log('  - URL exists:', !!supabaseUrl)
+      console.log('  - URL starts with https://:', supabaseUrl?.startsWith('https://'))
+      console.log('  - URL length:', supabaseUrl?.length || 0)
+      console.log('  - Key exists:', !!supabaseKey)
+      console.log('  - Key length:', supabaseKey?.length || 0)
+      
       const result = await signIn(email, password)
 
       if (result.error) {
         console.error('❌ Login error:', result.error)
+        
+        // DIAGNOSTIC MODE: Log exact error object for mobile debugging
+        console.error('📋 Full error object:', JSON.stringify(result.error, null, 2))
+        console.error('📋 Error type:', result.error?.constructor?.name)
+        console.error('📋 Error message:', result.error?.message)
+        console.error('📋 Error code:', result.error?.code)
+        console.error('📋 Error status:', result.error?.status)
+        console.error('📋 Error name:', result.error?.name)
+        console.error('📋 Error stack:', result.error?.stack)
+        
         if (result.error.message?.includes('Network error') || result.error.message?.includes('Failed to fetch')) {
           setError('Cannot connect to database. Please check your connection and Vercel settings.')
         } else if (result.error.type === 'EMAIL_NOT_CONFIRMED') {
@@ -41,11 +63,15 @@ const Login = () => {
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
           if (sessionError) {
             console.error('Session refresh error:', sessionError)
+            // DIAGNOSTIC MODE: Log session error details
+            console.error('📋 Session error object:', JSON.stringify(sessionError, null, 2))
           } else {
             console.log('✅ Session refreshed successfully:', !!sessionData?.session)
           }
         } catch (sessionErr) {
           console.error('Session refresh exception:', sessionErr)
+          // DIAGNOSTIC MODE: Log session exception details
+          console.error('📋 Session exception object:', JSON.stringify(sessionErr, Object.getOwnPropertyNames(sessionErr), 2))
         }
         
         // MOBILE FIX: Wait 500ms after signIn to give mobile OS time to write auth token to disk
@@ -62,6 +88,12 @@ const Login = () => {
       setError('Login failed. Please try again.')
     } catch (err) {
       console.error('❌ Login exception:', err)
+      // DIAGNOSTIC MODE: Log full exception details
+      console.error('📋 Exception object:', JSON.stringify(err, Object.getOwnPropertyNames(err), 2))
+      console.error('📋 Exception type:', err?.constructor?.name)
+      console.error('📋 Exception message:', err?.message)
+      console.error('📋 Exception stack:', err?.stack)
+      
       setError('An unexpected error occurred. Please try again.')
     } finally {
       // FORCE loading off - this MUST run
@@ -88,6 +120,11 @@ const Login = () => {
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 md:p-4 mb-4">
                 <p className="text-red-600 text-xs sm:text-sm font-medium">{error}</p>
+                {error.includes('Cannot connect') && (
+                  <p className="text-red-500 text-xs mt-2">
+                    Check browser console (F12) for diagnostic details.
+                  </p>
+                )}
               </div>
             )}
 
