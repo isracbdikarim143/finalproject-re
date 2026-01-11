@@ -14,38 +14,65 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('🔐 Login form submitted')
     setLoading(true)
-    setError('') // Clear previous errors
+    setError('')
 
     // Check environment variables before attempting login
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Environment variables missing')
       setError('Database connection configuration is missing. Please check Vercel environment variables.')
       setLoading(false)
       return
     }
 
-    try {
-      const { user, error: signInError } = await signIn(email, password)
+    console.log('✅ Environment variables found, attempting login...')
+    console.log('📧 Email:', email)
 
-      if (signInError) {
-        // Error is already shown via toast in AuthContext, but set local error for display
-        if (signInError.message?.includes('Network error') || signInError.message?.includes('Failed to fetch')) {
+    try {
+      console.log('🚀 Calling signIn function...')
+      const result = await signIn(email, password)
+      console.log('📥 signIn result:', { user: !!result.user, error: result.error?.message })
+
+      if (result.error) {
+        console.error('❌ Login error:', result.error)
+        // Error is already shown via toast in AuthContext
+        if (result.error.message?.includes('Network error') || result.error.message?.includes('Failed to fetch')) {
           setError('Cannot connect to database. Please check your connection and Vercel settings.')
-        } else if (signInError.type === 'EMAIL_NOT_CONFIRMED') {
+        } else if (result.error.type === 'EMAIL_NOT_CONFIRMED') {
           setError('Please check your email and confirm your account before logging in.')
         } else {
           setError('Invalid email or password. Please try again.')
         }
-      } else if (user && !signInError) {
-        navigate('/dashboard')
+        setLoading(false)
+        return
       }
+
+      if (result.user && !result.error) {
+        console.log('✅ Login successful, user:', result.user.id)
+        console.log('🧭 Navigating to /dashboard...')
+        
+        // Small delay to ensure session is established
+        setTimeout(() => {
+          console.log('🧭 Navigation triggered')
+          navigate('/dashboard', { replace: true })
+        }, 100)
+        
+        // Ensure loading is set to false
+        setLoading(false)
+        return
+      }
+
+      // Fallback: no user returned
+      console.warn('⚠️ No user returned from signIn')
+      setError('Login failed. Please try again.')
+      setLoading(false)
     } catch (err) {
-      console.error('Login form error:', err)
+      console.error('❌ Login form exception:', err)
       setError('An unexpected error occurred. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -89,7 +116,8 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all text-sm sm:text-base"
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -106,14 +134,15 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all text-sm sm:text-base"
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
               <label className="flex items-center cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-4 h-4" />
+                <input type="checkbox" className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-4 h-4" disabled={loading} />
                 <span className="ml-2 text-xs sm:text-sm text-gray-600">Remember me</span>
               </label>
               <Link to="/forgot-password" className="text-xs sm:text-sm text-teal-600 hover:text-teal-700 font-medium">
@@ -122,14 +151,17 @@ const Login = () => {
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.98 }}
               type="submit"
               disabled={loading}
               className="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Logging in...</span>
+                </>
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
