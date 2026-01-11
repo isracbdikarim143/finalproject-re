@@ -19,22 +19,16 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Use refs to track component mount status and abort controllers
+  // Use refs to track component mount status
   const isMountedRef = useRef(true)
-  const abortControllerRef = useRef(null)
   const channelsRef = useRef([])
 
   useEffect(() => {
     isMountedRef.current = true
     
     return () => {
-      // Cleanup on unmount
+      // Cleanup on unmount only
       isMountedRef.current = false
-      
-      // Abort any ongoing fetch requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
       
       // Remove all real-time channels
       channelsRef.current.forEach(channel => {
@@ -128,10 +122,6 @@ const Dashboard = () => {
       return
     }
 
-    // Create new abort controller for this request
-    const abortController = new AbortController()
-    abortControllerRef.current = abortController
-
     try {
       if (isMountedRef.current) {
         setLoading(true)
@@ -161,6 +151,11 @@ const Dashboard = () => {
         }
       }
 
+      // Check if component is still mounted before continuing
+      if (!isMountedRef.current) {
+        return
+      }
+
       const totalCalories = nutrition?.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
 
       // Get today's workout logs
@@ -175,6 +170,11 @@ const Dashboard = () => {
       if (workoutError) {
         console.warn('Workout logs fetch error (table might not exist):', workoutError.message)
         // Continue with other data if table doesn't exist
+      }
+
+      // Check if component is still mounted before continuing
+      if (!isMountedRef.current) {
+        return
       }
 
       const workoutCalories = workoutLogs?.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
@@ -197,7 +197,7 @@ const Dashboard = () => {
       const totalWater = waterLogs?.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
 
       // Check if component is still mounted before updating state
-      if (!isMountedRef.current || abortController.signal.aborted) {
+      if (!isMountedRef.current) {
         return
       }
 
@@ -210,14 +210,20 @@ const Dashboard = () => {
       // Load last 7 days activity
       await loadActivityData(userId)
       
-      if (isMountedRef.current && !abortController.signal.aborted) {
+      if (isMountedRef.current) {
         setLoading(false)
       }
     } catch (error) {
+      // Silently ignore AbortError - it's expected when component unmounts
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.log('Request aborted (component unmounted)')
+        return
+      }
+      
       console.error('Error loading dashboard data:', error)
       
-      // Only update state if component is still mounted and not aborted
-      if (isMountedRef.current && !abortController.signal.aborted) {
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
         const errorMessage = error.message || 'Unknown error'
         setError(`Failed to load dashboard data: ${errorMessage}`)
         setLoading(false)
@@ -291,6 +297,12 @@ const Dashboard = () => {
         setActivityData(chartData)
       }
     } catch (error) {
+      // Silently ignore AbortError - it's expected when component unmounts
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.log('Activity data request aborted (component unmounted)')
+        return
+      }
+      
       console.error('Error loading activity data:', error)
       if (isMountedRef.current) {
         toast.error('Failed to load activity data')
