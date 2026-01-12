@@ -79,10 +79,10 @@ const Profile = () => {
     }
 
     // CORE REBUILD: Use URL.createObjectURL for instant preview (mobile-friendly)
-    const previewUrl = URL.createObjectURL(file)
-    setAvatarUrl(previewUrl)
-
+    let previewUrl = null
     try {
+      previewUrl = URL.createObjectURL(file)
+      setAvatarUrl(previewUrl)
       setUploading(true)
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
@@ -121,7 +121,10 @@ const Profile = () => {
       await loadProfile(user.id)
       toast.success('Avatar updated successfully! ✅')
     } catch (error) {
-      // Revert optimistic update on error
+      // Revert optimistic update on error - revoke object URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
       if (profile?.avatar_url) {
         await loadAvatar(profile.avatar_url)
       } else {
