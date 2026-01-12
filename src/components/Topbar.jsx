@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { workouts } from '../data/workouts'
 import { somaliFoods } from '../data/somaliFoods'
 import toast from 'react-hot-toast'
+import ProfileDrawer from './ProfileDrawer'
 
 const Topbar = () => {
   const { profile } = useAuth()
@@ -15,6 +16,7 @@ const Topbar = () => {
   const [searchResults, setSearchResults] = useState([])
   const [showResults, setShowResults] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false)
   const searchRef = useRef(null)
   const notificationRef = useRef(null)
 
@@ -244,7 +246,10 @@ const Topbar = () => {
             </div>
 
             {/* Profile */}
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowProfileDrawer(true)}
+              className="flex items-center gap-3 hover:bg-gray-100 rounded-lg px-2 py-1.5 transition-colors"
+            >
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -256,16 +261,19 @@ const Topbar = () => {
                   <User className="w-5 h-5" />
                 </div>
               )}
-              <div className="hidden sm:block">
+              <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'User'}</p>
                 {lastLogin && (
                   <p className="text-xs text-gray-500">Last login: {lastLogin}</p>
                 )}
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Profile Drawer */}
+      <ProfileDrawer isOpen={showProfileDrawer} onClose={() => setShowProfileDrawer(false)} />
     </header>
   )
 }

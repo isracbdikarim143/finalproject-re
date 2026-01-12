@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { workouts } from '../data/workouts'
 import { Dumbbell, CheckCircle, Search, Play, Loader2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
 const Workouts = () => {
@@ -15,6 +14,7 @@ const Workouts = () => {
   const [loading, setLoading] = useState(true)
   const [completingId, setCompletingId] = useState(null)
   const [error, setError] = useState(null)
+  const [timeoutExceeded, setTimeoutExceeded] = useState(false)
 
   const categories = ['All', 'Chest', 'Legs', 'Abs', 'Cardio', 'Arms']
 
@@ -25,7 +25,19 @@ const Workouts = () => {
       return
     }
 
-    loadTodayWorkouts()
+    setLoading(true)
+    setTimeoutExceeded(false)
+
+    // 3-second timeout
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn('Workouts: Data loading timeout exceeded (3s). Showing empty state.')
+        setTimeoutExceeded(true)
+        setLoading(false)
+      }
+    }, 3000)
+
+    loadTodayWorkouts().finally(() => clearTimeout(timer))
   }, [user?.id])
 
   const loadTodayWorkouts = async () => {
@@ -161,12 +173,30 @@ const Workouts = () => {
     }
   }
 
-  if (loading) {
+  if (loading && !timeoutExceeded) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading workouts...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show empty state if timeout exceeded and no data
+  if (!loading && timeoutExceeded && todayWorkouts.length === 0 && filteredWorkouts.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
+            <Dumbbell className="w-10 h-10 text-teal-600" />
+            Workout Library
+          </h1>
+          <p className="text-gray-600 mt-2">Choose a workout and track your progress</p>
+        </div>
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No workouts found. Data loading timed out or no data available.</p>
         </div>
       </div>
     )
@@ -191,14 +221,10 @@ const Workouts = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20"
-        >
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 transition-opacity">
           <h3 className="text-sm text-gray-600 mb-1">Today's Workouts</h3>
           <p className="text-3xl font-bold text-gray-900">{todayWorkouts.length}</p>
-        </motion.div>
+        </div>
 
         <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
           <h3 className="text-sm text-gray-600 mb-1">Calories Burned</h3>
@@ -247,17 +273,14 @@ const Workouts = () => {
 
       {/* Workout Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredWorkouts.map((workout, index) => {
+        {filteredWorkouts.map((workout) => {
           const isCompleted = completedWorkouts.includes(workout.name)
           const isCompleting = completingId === workout.id
           
           return (
-            <motion.div
+            <div
               key={workout.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 hover:shadow-xl transition-all"
+              className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 hover:shadow-xl transition-shadow"
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -318,7 +341,7 @@ const Workouts = () => {
                   </>
                 )}
               </button>
-            </motion.div>
+            </div>
           )
         })}
       </div>

@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import { supabase, isMobileDevice } from '../lib/supabaseClient'
 import { Flame, Droplet, Activity, Calendar } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
 const Dashboard = () => {
@@ -272,26 +271,19 @@ const Dashboard = () => {
 
       {/* Error Message */}
       {error && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-red-50/90 backdrop-blur-sm border border-red-200/50 rounded-xl p-3 md:p-4 mb-4"
-        >
+        <div className="bg-red-50/90 backdrop-blur-sm border border-red-200/50 rounded-xl p-3 md:p-4 mb-4 transition-opacity">
           <p className="text-red-600 text-xs md:text-sm">{error}</p>
-        </motion.div>
+        </div>
       )}
 
       {/* Stats Cards - Enhanced Glassmorphism */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {statCards.map((stat, index) => {
+        {statCards.map((stat) => {
           const Icon = stat.icon
           return (
-            <motion.div
+            <div
               key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-5 md:p-6 border border-white/30 hover:border-white/50 transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] relative overflow-hidden"
+              className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-5 md:p-6 border border-white/30 hover:border-white/50 transition-shadow hover:shadow-2xl relative overflow-hidden"
             >
               {/* Glassmorphism overlay effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -310,18 +302,13 @@ const Dashboard = () => {
                 </h3>
                 <p className="text-xs md:text-sm text-gray-600 font-medium">{stat.label}</p>
               </div>
-            </motion.div>
+            </div>
           )
         })}
       </div>
 
       {/* Activity Chart - Enhanced Glassmorphism */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-4 md:p-6 border border-white/30 hover:border-white/50 transition-all duration-300"
-      >
+      <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-4 md:p-6 border border-white/30 hover:border-white/50 transition-opacity">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6 gap-2">
           <h2 className="text-lg md:text-xl font-bold text-gray-900">Activity Overview</h2>
           <a href="#" className="text-xs md:text-sm text-teal-600 hover:text-teal-700 font-medium">
@@ -375,15 +362,10 @@ const Dashboard = () => {
             <p className="text-sm md:text-base text-center">No activity data available. Start logging your meals and workouts!</p>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Quick Actions / Reminders - Enhanced Glassmorphism */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-gradient-to-r from-teal-500 via-blue-500 to-teal-600 rounded-2xl shadow-xl p-5 md:p-6 text-white relative overflow-hidden border border-white/20"
-      >
+      <div className="bg-gradient-to-r from-teal-500 via-blue-500 to-teal-600 rounded-2xl shadow-xl p-5 md:p-6 text-white relative overflow-hidden border border-white/20 transition-opacity">
         {/* Glassmorphism overlay */}
         <div className="absolute inset-0 bg-white/10 backdrop-blur-sm" />
         
@@ -400,7 +382,7 @@ const Dashboard = () => {
           </div>
           <Calendar className="w-12 h-12 md:w-16 md:h-16 text-white/30 flex-shrink-0" />
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

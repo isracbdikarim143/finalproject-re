@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Dumbbell, Apple, TrendingUp, User, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { motion } from 'framer-motion'
 
 const Sidebar = () => {
   const location = useLocation()
@@ -33,9 +32,8 @@ const Sidebar = () => {
 
               return (
                 <Link key={item.path} to={item.path}>
-                  <motion.div
-                    whileHover={{ x: 4 }}
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                  <div
+                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-colors ${
                       isActive
                         ? 'bg-gradient-to-r from-teal-500 to-blue-500 text-white shadow-lg'
                         : 'text-gray-700 hover:bg-gray-100'
@@ -43,7 +41,7 @@ const Sidebar = () => {
                   >
                     <Icon className="w-5 h-5 mr-3" />
                     {item.label}
-                  </motion.div>
+                  </div>
                 </Link>
               )
             })}

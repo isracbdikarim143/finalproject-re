@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { somaliFoods } from '../data/somaliFoods'
 import { Apple, Droplet, Search, Plus, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
 const Nutrition = () => {
@@ -16,6 +15,7 @@ const Nutrition = () => {
   const [dailyTotals, setDailyTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [waterAmount, setWaterAmount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [timeoutExceeded, setTimeoutExceeded] = useState(false)
 
   // Get all unique categories
   const categories = ['All', ...new Set(somaliFoods.map(food => food.category))]
@@ -26,7 +26,19 @@ const Nutrition = () => {
       return
     }
 
-    loadTodayLogs()
+    setLoading(true)
+    setTimeoutExceeded(false)
+
+    // 3-second timeout
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn('Nutrition: Data loading timeout exceeded (3s). Showing empty state.')
+        setTimeoutExceeded(true)
+        setLoading(false)
+      }
+    }, 3000)
+
+    loadTodayLogs().finally(() => clearTimeout(timer))
 
     // Real-time subscription for nutrition
     const nutritionChannel = supabase
@@ -213,10 +225,28 @@ const Nutrition = () => {
   const dailyGoal = 2000 // calories
   const progress = (dailyTotals.calories / dailyGoal) * 100
 
-  if (loading) {
+  if (loading && !timeoutExceeded) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    )
+  }
+
+  // Show empty state if timeout exceeded and no data
+  if (!loading && timeoutExceeded && todayLogs.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
+            <Apple className="w-10 h-10 text-teal-600" />
+            Nutrition Tracker
+          </h1>
+          <p className="text-gray-600 mt-2">Track your meals and water intake</p>
+        </div>
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No nutrition data found. Data loading timed out or no data available.</p>
+        </div>
       </div>
     )
   }
@@ -233,11 +263,7 @@ const Nutrition = () => {
 
       {/* Daily Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20"
-        >
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 transition-opacity">
           <h3 className="text-sm text-gray-600 mb-1">Calories</h3>
           <p className="text-2xl font-bold text-gray-900">
             {dailyTotals.calories} / {dailyGoal} kcal
@@ -267,12 +293,7 @@ const Nutrition = () => {
       </div>
 
       {/* Water Tracker */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl shadow-lg p-6 text-white"
-      >
+      <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl shadow-lg p-6 text-white transition-opacity">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
@@ -331,12 +352,9 @@ const Nutrition = () => {
       {/* Food Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredFoods.map((food) => (
-          <motion.div
+          <div
             key={food.id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ scale: 1.02 }}
-            className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 cursor-pointer hover:shadow-xl transition-all"
+            className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20 cursor-pointer hover:shadow-xl transition-shadow"
             onClick={() => handleLogFood(food)}
           >
             <div className="flex items-start justify-between mb-4">
@@ -371,7 +389,7 @@ const Nutrition = () => {
             <button className="mt-4 w-full bg-gradient-to-r from-teal-500 to-blue-500 text-white py-2 rounded-lg font-semibold hover:shadow-lg transition-all">
               Log Food
             </button>
-          </motion.div>
+          </div>
         ))}
       </div>
 
@@ -381,11 +399,9 @@ const Nutrition = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Today's Logs</h2>
           <div className="space-y-3">
             {todayLogs.map((log) => (
-              <motion.div
+              <div
                 key={log.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white/80 backdrop-blur-lg rounded-xl shadow-lg p-4 border border-white/20 flex items-center justify-between"
+                className="bg-white/80 backdrop-blur-lg rounded-xl shadow-lg p-4 border border-white/20 flex items-center justify-between transition-opacity"
               >
                 <div>
                   <h3 className="font-semibold text-gray-900">{log.food_name}</h3>
@@ -402,7 +418,7 @@ const Nutrition = () => {
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
