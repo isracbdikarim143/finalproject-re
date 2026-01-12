@@ -10,7 +10,6 @@ const Nutrition = () => {
   const [foods, setFoods] = useState(somaliFoods)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedFood, setSelectedFood] = useState(null)
   const [todayLogs, setTodayLogs] = useState([])
   const [dailyTotals, setDailyTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [waterAmount, setWaterAmount] = useState(0)
@@ -111,7 +110,10 @@ const Nutrition = () => {
         .gte('created_at', today.toISOString())
 
       if (waterError) {
-        console.warn('Water logs error (table might not exist):', waterError)
+        if (waterError.name === 'AbortError' || waterError.message?.includes('aborted')) {
+          return
+        }
+        // Silent fail for water logs - table might not exist
         setWaterAmount(0)
       } else {
         const totalWater = waterData?.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
@@ -199,8 +201,7 @@ const Nutrition = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error logging food:', error)
-      toast.error('Failed to log food')
+      toast.error(`Failed to log food: ${error.message || 'Unknown error'}`)
     }
   }
 
@@ -301,7 +302,6 @@ const Nutrition = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error adding water:', error)
       toast.error(`Failed to log water: ${error.message || 'Unknown error'}`)
     }
   }

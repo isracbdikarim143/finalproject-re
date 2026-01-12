@@ -53,7 +53,7 @@ const Profile = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error loading avatar:', error)
+      // Silent fail for avatar loading
     }
   }
 
@@ -63,23 +63,30 @@ const Profile = () => {
       return
     }
 
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    // OPTIMISTIC UI: Show preview immediately
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setAvatarUrl(e.target?.result || null)
+    }
+    reader.readAsDataURL(file)
+
     try {
       setUploading(true)
-      const file = event.target.files?.[0]
-      if (!file) return
-
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please select an image file')
-        return
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size must be less than 5MB')
-        return
-      }
-
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
       const filePath = fileName
@@ -89,7 +96,7 @@ const Profile = () => {
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false,
+          upsert: true, // Allow overwrite
         })
 
       if (uploadError) {
@@ -112,16 +119,22 @@ const Profile = () => {
         throw updateError
       }
 
-      // Load new avatar
+      // Load new avatar from storage
       await loadAvatar(filePath)
       await loadProfile(user.id)
       toast.success('Avatar updated successfully! ✅')
     } catch (error) {
+      // Revert optimistic update on error
+      if (profile?.avatar_url) {
+        await loadAvatar(profile.avatar_url)
+      } else {
+        setAvatarUrl(null)
+      }
+
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error uploading avatar:', error)
-      toast.error('Failed to upload avatar')
+      toast.error(`Failed to upload avatar: ${error.message || 'Unknown error'}`)
     } finally {
       setUploading(false)
     }
@@ -163,8 +176,7 @@ const Profile = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error saving profile:', error)
-      toast.error('Failed to update profile')
+      toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
     }
   }
 

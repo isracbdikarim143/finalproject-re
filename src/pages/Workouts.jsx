@@ -45,7 +45,9 @@ const Workouts = () => {
         .order('created_at', { ascending: false })
 
       if (fetchError) {
-        console.error('Error loading workout logs:', fetchError)
+        if (fetchError.name === 'AbortError' || fetchError.message?.includes('aborted')) {
+          return
+        }
         if (
           fetchError.code === 'PGRST116' ||
           fetchError.message?.includes('relation') ||
@@ -54,13 +56,12 @@ const Workouts = () => {
           const errorMsg = 'workout_logs table not found. Please create it in Supabase.'
           setError(errorMsg)
           toast.error(errorMsg)
-          console.error(
-            'SUPABASE FIX: Create workout_logs table with columns: id (uuid, primary key, default uuid_generate_v4()), user_id (uuid, references auth.users(id)), workout_type (text), duration_mins (integer), calories_burned (integer), created_at (timestamp, default now())'
-          )
           setTodayWorkouts([])
           setCompletedWorkouts([])
         } else {
-          throw fetchError
+          toast.error(`Failed to load workouts: ${fetchError.message || 'Unknown error'}`)
+          setTodayWorkouts([])
+          setCompletedWorkouts([])
         }
       } else {
         setTodayWorkouts(data || [])
@@ -162,7 +163,6 @@ const Workouts = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error completing workout:', error)
       toast.error(`Failed to log workout: ${error.message || 'Unknown error'}`)
     } finally {
       setCompletingId(null)

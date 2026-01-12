@@ -149,7 +149,7 @@ const Dashboard = () => {
       if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
         totalCalories = nutritionResult.value.data.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
       } else if (nutritionResult.status === 'rejected') {
-        console.warn('Nutrition fetch error:', nutritionResult.reason)
+        // Silent fail - continue with 0 calories
       }
 
       // Process workout data
@@ -167,7 +167,7 @@ const Dashboard = () => {
       if (waterResult.status === 'fulfilled' && waterResult.value.data) {
         totalWater = waterResult.value.data.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
       } else if (waterResult.status === 'rejected') {
-        console.warn('Water logs fetch error:', waterResult.reason)
+        // Silent fail - continue with 0 water
       }
 
       // Update stats immediately
@@ -217,10 +217,10 @@ const Dashboard = () => {
       setActivityData(chartData)
     } catch (error) {
       // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error loading dashboard data:', error)
+      toast.error(`Failed to load dashboard data: ${error.message || 'Unknown error'}`)
       setError(`Failed to load some data: ${error.message || 'Unknown error'}`)
     }
   }

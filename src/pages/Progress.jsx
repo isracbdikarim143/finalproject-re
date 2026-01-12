@@ -77,8 +77,7 @@ const Progress = () => {
       if (workoutError && (workoutError.name === 'AbortError' || workoutError.message?.includes('aborted'))) {
         // Continue with empty workouts array - don't block chart rendering
       } else if (workoutError) {
-        console.warn('Workout logs error (table might not exist):', workoutError)
-        // Continue with empty workouts array
+        // Silent fail - continue with empty workouts array
       }
 
       // Load nutrition statistics
@@ -93,8 +92,7 @@ const Progress = () => {
       if (nutritionError && (nutritionError.name === 'AbortError' || nutritionError.message?.includes('aborted'))) {
         // Continue with empty nutrition array - don't block chart rendering
       } else if (nutritionError) {
-        console.warn('Nutrition error (table might not exist):', nutritionError)
-        // Continue with empty nutrition array
+        // Silent fail - continue with empty nutrition array
       }
 
       // EMERGENCY FIX: Ensure workouts and nutrition are arrays even if aborted
@@ -172,10 +170,9 @@ const Progress = () => {
         return
       }
       
-      console.error('Error loading progress data:', error)
       // Only show error toast for critical errors, not for missing tables
       if (error.code !== 'PGRST116' && !error.message?.includes('relation') && !error.message?.includes('does not exist')) {
-        toast.error('Failed to load progress data')
+        toast.error(`Failed to load progress data: ${error.message || 'Unknown error'}`)
       }
       // Set empty arrays on error
       setWorkoutStats([])

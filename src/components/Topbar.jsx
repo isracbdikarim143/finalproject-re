@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Search, Bell, User, X } from 'lucide-react'
+import { Search, Bell, User, X, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { workouts } from '../data/workouts'
 import { somaliFoods } from '../data/somaliFoods'
 import toast from 'react-hot-toast'
-import ProfileDrawer from './ProfileDrawer'
 
 const Topbar = () => {
-  const { user, profile } = useAuth()
+  const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -114,7 +113,9 @@ const Topbar = () => {
     setShowResults(results.length > 0)
   }, [searchQuery])
 
-  // Close search results when clicking outside
+  const profileRef = useRef(null)
+
+  // Close search results and profile dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -122,6 +123,9 @@ const Topbar = () => {
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false)
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowProfileDrawer(false)
       }
     }
 
@@ -250,9 +254,9 @@ const Topbar = () => {
             </div>
 
             {/* Profile Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
-                onClick={() => setShowProfileDrawer(true)}
+                onClick={() => setShowProfileDrawer(!showProfileDrawer)}
                 className="flex items-center gap-3 hover:bg-gray-100 rounded-lg px-2 py-1.5 transition-colors"
               >
                 {avatarUrl ? (
@@ -273,13 +277,61 @@ const Topbar = () => {
                   )}
                 </div>
               </button>
+
+              {/* Clean Dropdown Menu */}
+              {showProfileDrawer && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-xl z-50">
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="flex items-center gap-3">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={profile?.full_name || 'User'}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-teal-500"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+                          <User className="w-6 h-6" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {profile?.full_name || user?.email || 'User'}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    {lastLogin && (
+                      <div className="px-3 py-2 text-xs text-gray-600">
+                        <p>Login: {lastLogin}</p>
+                        {sessionTime > 0 && <p>Session: {sessionTime} min</p>}
+                      </div>
+                    )}
+                    <button
+                      onClick={async () => {
+                        try {
+                          await signOut()
+                          setShowProfileDrawer(false)
+                          navigate('/login')
+                        } catch (error) {
+                          toast.error('Failed to logout')
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Profile Drawer */}
-      <ProfileDrawer isOpen={showProfileDrawer} onClose={() => setShowProfileDrawer(false)} />
     </header>
   )
 }
