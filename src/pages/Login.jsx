@@ -32,6 +32,9 @@ const Login = () => {
       console.log('  - Key length:', supabaseKey?.length || 0)
       
       const result = await signIn(email, password)
+      
+      // Set loading to false immediately when response is received
+      setLoading(false)
 
       if (result.error) {
         console.error('❌ Login error:', result.error)
@@ -56,12 +59,10 @@ const Login = () => {
       }
 
       if (result.user && !result.error) {
-        console.log('✅ Login successful, redirecting immediately...')
+        console.log('✅ Login successful, forcing redirect to dashboard...')
         
-        // IMMEDIATE NAVIGATION: Navigate to dashboard right away
-        // The onAuthStateChange listener in AuthContext will handle session updates
-        setLoading(false)
-        navigate('/dashboard', { replace: true })
+        // FORCE REDIRECT: Use window.location.href to force browser navigation
+        window.location.href = '/dashboard'
         return
       }
 

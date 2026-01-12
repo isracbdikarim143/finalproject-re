@@ -19,6 +19,12 @@ const ProtectedRoute = ({ children }) => {
         // Check session immediately first (no delay for initial check)
         let { data: { session }, error } = await supabase.auth.getSession()
         
+        // Silent catch for AbortError - prevents console errors during presentation
+        if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+          setSessionChecked(true)
+          return
+        }
+        
         if (session) {
           // INSTANT RENDER: If session exists immediately, render children right away
           console.log('✅ ProtectedRoute: Session found immediately, rendering children')
@@ -32,6 +38,13 @@ const ProtectedRoute = ({ children }) => {
         
         // Check again after delay
         const { data: { session: delayedSession }, error: delayedError } = await supabase.auth.getSession()
+        
+        // Silent catch for AbortError - prevents console errors during presentation
+        if (delayedError && (delayedError.name === 'AbortError' || delayedError.message?.includes('aborted'))) {
+          setSessionChecked(true)
+          return
+        }
+        
         if (delayedError) {
           console.error('ProtectedRoute: Session check error:', delayedError)
           setHasSession(false)
@@ -40,6 +53,11 @@ const ProtectedRoute = ({ children }) => {
           setHasSession(!!delayedSession)
         }
       } catch (err) {
+        // Silent catch for AbortError - prevents console errors during presentation
+        if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+          setSessionChecked(true)
+          return
+        }
         console.error('ProtectedRoute: Session check exception:', err)
         setHasSession(false)
       } finally {
