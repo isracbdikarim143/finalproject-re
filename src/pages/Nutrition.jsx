@@ -118,6 +118,10 @@ const Nutrition = () => {
         setWaterAmount(totalWater)
       }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error loading logs:', error)
       toast.error(`Failed to load nutrition logs: ${error.message || 'Unknown error'}`)
     }
@@ -141,6 +145,10 @@ const Nutrition = () => {
       toast.success(`✅ ${food.name} logged!`)
       setSelectedFood(null)
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error logging food:', error)
       toast.error('Failed to log food')
     }
@@ -154,6 +162,10 @@ const Nutrition = () => {
 
       toast.success('Food log deleted')
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error deleting log:', error)
       toast.error('Failed to delete log')
     }
@@ -190,6 +202,10 @@ const Nutrition = () => {
         await loadTodayLogs()
       }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error adding water:', error)
       toast.error(`Failed to log water: ${error.message || 'Unknown error'}`)
     }

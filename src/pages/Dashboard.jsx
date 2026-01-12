@@ -217,6 +217,10 @@ const Dashboard = () => {
 
       setActivityData(chartData)
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error loading dashboard data:', error)
       setError(`Failed to load some data: ${error.message || 'Unknown error'}`)
     }

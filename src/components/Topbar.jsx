@@ -33,6 +33,10 @@ const Topbar = () => {
         setAvatarUrl(data.publicUrl)
       }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error loading avatar:', error)
     }
   }

@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// GLOBAL ERROR SUPPRESSION: Intercept and ignore AbortError
+// GLOBAL ERROR SUPPRESSION: Intercept and silently ignore AbortError
 window.addEventListener('error', (event) => {
   if (event.error?.name === 'AbortError' || event.message?.includes('aborted')) {
-    console.log('🔇 Suppressed AbortError:', event.error?.message || event.message)
+    // Silent catch - no console output
     event.preventDefault()
     return false
   }
@@ -15,7 +15,7 @@ window.addEventListener('error', (event) => {
 // Global unhandled promise rejection handler for AbortError
 window.addEventListener('unhandledrejection', (event) => {
   if (event.reason?.name === 'AbortError' || event.reason?.message?.includes('aborted')) {
-    console.log('🔇 Suppressed AbortError promise rejection:', event.reason?.message || 'Unknown')
+    // Silent catch - no console output
     event.preventDefault()
     return false
   }

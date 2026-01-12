@@ -68,6 +68,10 @@ const Workouts = () => {
         setCompletedWorkouts(data?.map((w) => w.workout_type || w.workout_name || w.name) || [])
       }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('Error loading workouts:', error)
       setError(`Failed to load workouts: ${error.message || 'Unknown error'}`)
       toast.error(`Failed to load workouts: ${error.message || 'Unknown error'}`)
@@ -127,6 +131,11 @@ const Workouts = () => {
         toast.error('Workout logged but no data returned')
       }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        setCompletingId(null)
+        return
+      }
       console.error('Error completing workout:', error)
       toast.error(`Failed to log workout: ${error.message || 'Unknown error'}`)
     } finally {
