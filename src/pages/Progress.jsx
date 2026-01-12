@@ -11,45 +11,44 @@ const Progress = () => {
   const [nutritionStats, setNutritionStats] = useState([])
   const [weightHistory, setWeightHistory] = useState([])
   const [milestones, setMilestones] = useState([])
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!user) return
 
     loadProgressData()
 
-    // Real-time subscriptions
-    const workoutChannel = supabase
-      .channel('progress-workouts')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'workouts',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          loadProgressData()
-        }
-      )
-      .subscribe()
+      // Real-time subscriptions for workout_logs and nutrition
+      const workoutChannel = supabase
+        .channel('progress-workout-logs')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'workout_logs',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            loadProgressData()
+          }
+        )
+        .subscribe()
 
-    const nutritionChannel = supabase
-      .channel('progress-nutrition')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'nutrition',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          loadProgressData()
-        }
-      )
-      .subscribe()
+      const nutritionChannel = supabase
+        .channel('progress-nutrition')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'nutrition',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            loadProgressData()
+          }
+        )
+        .subscribe()
 
     return () => {
       supabase.removeChannel(workoutChannel)
@@ -187,6 +186,19 @@ const Progress = () => {
   const totalWorkouts = workoutStats.reduce((sum, day) => sum + day.workouts, 0)
   const totalCalories = workoutStats.reduce((sum, day) => sum + day.workoutCalories, 0)
 
+  // Generate 7 days of data if empty to show chart structure
+  const chartData = workoutStats.length > 0 ? workoutStats : Array.from({ length: 7 }, (_, i) => {
+    const date = new Date()
+    date.setDate(date.getDate() - (6 - i))
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      workouts: 0,
+      workoutCalories: 0,
+      nutritionCalories: 0,
+      totalCalories: 0,
+    }
+  })
+
   return (
     <div className="space-y-6">
       <div className="mb-6">
@@ -231,30 +243,28 @@ const Progress = () => {
         </div>
       </div>
 
-      {/* Activity Chart */}
-      {workoutStats.length > 0 && (
-        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">7-Day Activity Overview</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={workoutStats}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
-              <XAxis dataKey="date" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="workouts" stroke="#14b8a6" strokeWidth={3} dot={{ fill: '#14b8a6', r: 6 }} name="Workouts" />
-              <Line type="monotone" dataKey="workoutCalories" stroke="#f97316" strokeWidth={3} dot={{ fill: '#f97316', r: 6 }} name="Calories Burned" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      {/* Activity Chart - Always render with real data */}
+      <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">7-Day Activity Overview</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
+            <XAxis dataKey="date" stroke="#6b7280" />
+            <YAxis stroke="#6b7280" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: 'none',
+                borderRadius: '12px',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              }}
+            />
+            <Legend />
+            <Line type="monotone" dataKey="workouts" stroke="#14b8a6" strokeWidth={3} dot={{ fill: '#14b8a6', r: 6 }} name="Workouts" />
+            <Line type="monotone" dataKey="workoutCalories" stroke="#f97316" strokeWidth={3} dot={{ fill: '#f97316', r: 6 }} name="Calories Burned" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Milestones */}
       {milestones.length > 0 && (

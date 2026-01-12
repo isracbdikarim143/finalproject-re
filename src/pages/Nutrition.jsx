@@ -14,8 +14,6 @@ const Nutrition = () => {
   const [todayLogs, setTodayLogs] = useState([])
   const [dailyTotals, setDailyTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [waterAmount, setWaterAmount] = useState(0)
-  // CRITICAL FIX: Initialize loading as false to prevent blocking buttons/search
-  const [loading, setLoading] = useState(false)
 
   // Get all unique categories
   const categories = ['All', ...new Set(somaliFoods.map(food => food.category))]
@@ -131,30 +129,72 @@ const Nutrition = () => {
   const handleLogFood = async (food) => {
     if (!user) return
 
+    // OPTIMISTIC UI UPDATE: Update totals immediately
+    const tempLog = {
+      id: `temp-${Date.now()}`,
+      user_id: user.id,
+      food_name: food.name,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      created_at: new Date().toISOString(),
+    }
+
+    setTodayLogs(prev => [tempLog, ...prev])
+    setDailyTotals(prev => ({
+      calories: prev.calories + food.calories,
+      protein: prev.protein + food.protein,
+      carbs: prev.carbs + food.carbs,
+      fat: prev.fat + food.fat,
+    }))
+
     try {
-      // CRITICAL FIX: Don't block UI - async operation without loading state
-      const { error } = await supabase.from('nutrition').insert({
+      const { data, error } = await supabase.from('nutrition').insert({
         user_id: user.id,
         food_name: food.name,
         calories: food.calories,
         protein: food.protein,
         carbs: food.carbs,
         fat: food.fat,
-      })
+      }).select()
 
-      // Silent catch for AbortError - prevents console errors during presentation
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        // Keep optimistic update
+        toast.success(`✅ ${food.name} logged!`)
         return
       }
 
       if (error) throw error
 
-      toast.success(`✅ ${food.name} logged!`)
-      setSelectedFood(null)
-      // Refresh logs in background without blocking
-      loadTodayLogs()
+      if (data && data.length > 0) {
+        // Replace temp log with real data
+        setTodayLogs(prev => {
+          const filtered = prev.filter(log => log.id !== tempLog.id)
+          return [data[0], ...filtered]
+        })
+        toast.success(`✅ ${food.name} logged!`)
+      } else {
+        // Revert on error
+        setTodayLogs(prev => prev.filter(log => log.id !== tempLog.id))
+        setDailyTotals(prev => ({
+          calories: prev.calories - food.calories,
+          protein: prev.protein - food.protein,
+          carbs: prev.carbs - food.carbs,
+          fat: prev.fat - food.fat,
+        }))
+        toast.error('Failed to log food')
+      }
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
+      // Revert optimistic update
+      setTodayLogs(prev => prev.filter(log => log.id !== tempLog.id))
+      setDailyTotals(prev => ({
+        calories: prev.calories - food.calories,
+        protein: prev.protein - food.protein,
+        carbs: prev.carbs - food.carbs,
+        fat: prev.fat - food.fat,
+      }))
+
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
@@ -164,15 +204,42 @@ const Nutrition = () => {
   }
 
   const handleDeleteLog = async (logId) => {
+    // Find the log to delete for optimistic update
+    const logToDelete = todayLogs.find(log => log.id === logId)
+    if (!logToDelete) return
+
+    // OPTIMISTIC UI UPDATE: Remove from UI immediately
+    setTodayLogs(prev => prev.filter(log => log.id !== logId))
+    setDailyTotals(prev => ({
+      calories: prev.calories - (logToDelete.calories || 0),
+      protein: prev.protein - (logToDelete.protein || 0),
+      carbs: prev.carbs - (logToDelete.carbs || 0),
+      fat: prev.fat - (logToDelete.fat || 0),
+    }))
+
     try {
       const { error } = await supabase.from('nutrition').delete().eq('id', logId)
+
+      if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        // Keep optimistic update
+        toast.success('Food log deleted')
+        return
+      }
 
       if (error) throw error
 
       toast.success('Food log deleted')
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      // Revert optimistic update
+      setTodayLogs(prev => [logToDelete, ...prev])
+      setDailyTotals(prev => ({
+        calories: prev.calories + (logToDelete.calories || 0),
+        protein: prev.protein + (logToDelete.protein || 0),
+        carbs: prev.carbs + (logToDelete.carbs || 0),
+        fat: prev.fat + (logToDelete.fat || 0),
+      }))
+
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
       console.error('Error deleting log:', error)
@@ -186,6 +253,10 @@ const Nutrition = () => {
       return
     }
 
+    // OPTIMISTIC UI UPDATE: Update water amount immediately
+    const newAmount = waterAmount + 250
+    setWaterAmount(newAmount)
+
     try {
       const { data, error } = await supabase
         .from('water_logs')
@@ -195,24 +266,38 @@ const Nutrition = () => {
         })
         .select()
 
+      if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        // Keep optimistic update
+        toast.success('✅ 250ml water added!')
+        return
+      }
+
       if (error) {
-        console.error('Water log error:', error)
+        // Revert optimistic update
+        setWaterAmount(waterAmount)
+        
         if (error.code === 'PGRST116' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
           toast.error('water_logs table not found. Please create it in Supabase.')
-          console.error('SUPABASE FIX: Create water_logs table with columns: id (uuid, primary key, default uuid_generate_v4()), user_id (uuid, references auth.users(id)), amount_ml (integer), created_at (timestamp, default now())')
         } else {
-          throw error
+          toast.error(`Failed to log water: ${error.message || 'Unknown error'}`)
         }
         return
       }
 
       if (data && data.length > 0) {
         toast.success('✅ 250ml water added!')
-        await loadTodayLogs()
+        // Refresh to get accurate total
+        loadTodayLogs()
+      } else {
+        // Revert if no data
+        setWaterAmount(waterAmount)
+        toast.error('Water logged but no data returned')
       }
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      // Revert optimistic update
+      setWaterAmount(waterAmount)
+
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
       console.error('Error adding water:', error)

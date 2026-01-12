@@ -15,8 +15,6 @@ const Dashboard = () => {
     workouts: 0,
   })
   const [activityData, setActivityData] = useState([])
-  // INSTANT DASHBOARD: Initialize loading as false - show Dashboard immediately
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {

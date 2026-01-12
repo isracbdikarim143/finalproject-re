@@ -116,7 +116,7 @@ const ProfileDrawer = ({ isOpen, onClose }) => {
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-gray-400" />
                 <div>
-                  <p className="text-xs text-gray-500">Last Login</p>
+                  <p className="text-xs text-gray-500">Login Time</p>
                   <p className="text-sm font-medium text-gray-900">{lastLogin}</p>
                 </div>
               </div>

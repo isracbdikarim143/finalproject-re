@@ -11,7 +11,6 @@ const Workouts = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [completedWorkouts, setCompletedWorkouts] = useState([])
   const [todayWorkouts, setTodayWorkouts] = useState([])
-  const [loading, setLoading] = useState(false)
   const [completingId, setCompletingId] = useState(null)
   const [error, setError] = useState(null)
 
@@ -84,13 +83,25 @@ const Workouts = () => {
       return
     }
 
-    if (completingId === workout.id) {
+    if (completingId === workout.id || completedWorkouts.includes(workout.name)) {
       return
     }
 
+    // OPTIMISTIC UI UPDATE: Update UI immediately before database call
+    const newWorkout = {
+      id: `temp-${Date.now()}`,
+      user_id: user.id,
+      workout_type: workout.name,
+      duration_mins: workout.duration || 0,
+      calories_burned: workout.calories || 0,
+      created_at: new Date().toISOString(),
+    }
+    
+    setTodayWorkouts(prev => [newWorkout, ...prev])
+    setCompletedWorkouts(prev => [...prev, workout.name])
+    setCompletingId(workout.id)
+
     try {
-      setCompletingId(workout.id)
-      
       const userId = user.id
 
       const { data, error: insertError } = await supabase
@@ -103,42 +114,57 @@ const Workouts = () => {
         })
         .select()
 
+      // Silent catch for AbortError
+      if (insertError && (insertError.name === 'AbortError' || insertError.message?.includes('aborted'))) {
+        // Keep optimistic update even if aborted
+        return
+      }
+
       if (insertError) {
-        console.error('Error completing workout:', insertError)
+        // Revert optimistic update on error
+        setTodayWorkouts(prev => prev.filter(w => w.id !== newWorkout.id))
+        setCompletedWorkouts(prev => prev.filter(name => name !== workout.name))
+        
         if (
           insertError.code === 'PGRST116' ||
           insertError.message?.includes('relation') ||
           insertError.message?.includes('does not exist')
         ) {
           toast.error('workout_logs table not found. Please create it in Supabase.')
-          console.error(
-            'SUPABASE FIX: Create workout_logs table with columns: id (uuid, primary key, default uuid_generate_v4()), user_id (uuid, references auth.users(id)), workout_type (text), duration_mins (integer), calories_burned (integer), created_at (timestamp, default now())'
-          )
         } else if (insertError.code === '23503') {
           toast.error('User not found. Please log out and log back in.')
         } else if (insertError.code === '42501') {
           toast.error('Permission denied. Please check RLS policies on workout_logs table.')
         } else {
-          throw insertError
+          toast.error(`Failed to log workout: ${insertError.message || 'Unknown error'}`)
         }
         return
       }
 
       if (data && data.length > 0) {
+        // Replace temp workout with real data
+        setTodayWorkouts(prev => {
+          const filtered = prev.filter(w => w.id !== newWorkout.id)
+          return [data[0], ...filtered]
+        })
         toast.success(`Great Job! ✅ You completed ${workout.name}!`)
-        await loadTodayWorkouts()
       } else {
+        // Revert if no data returned
+        setTodayWorkouts(prev => prev.filter(w => w.id !== newWorkout.id))
+        setCompletedWorkouts(prev => prev.filter(name => name !== workout.name))
         toast.error('Workout logged but no data returned')
       }
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
+      // Revert optimistic update on error
+      setTodayWorkouts(prev => prev.filter(w => w.id !== newWorkout.id))
+      setCompletedWorkouts(prev => prev.filter(name => name !== workout.name))
+      
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
       console.error('Error completing workout:', error)
       toast.error(`Failed to log workout: ${error.message || 'Unknown error'}`)
     } finally {
-      // EMERGENCY FIX: Reset completingId FIRST in finally block to prevent stuck state
       setCompletingId(null)
     }
   }

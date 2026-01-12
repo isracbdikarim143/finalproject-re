@@ -249,29 +249,31 @@ const Topbar = () => {
               )}
             </div>
 
-            {/* Profile */}
-            <button
-              onClick={() => setShowProfileDrawer(true)}
-              className="flex items-center gap-3 hover:bg-gray-100 rounded-lg px-2 py-1.5 transition-colors"
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={profile?.full_name || 'User'}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-teal-500"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-                  <User className="w-5 h-5" />
-                </div>
-              )}
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'User'}</p>
-                {lastLogin && (
-                  <p className="text-xs text-gray-500">Last login: {lastLogin}</p>
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileDrawer(true)}
+                className="flex items-center gap-3 hover:bg-gray-100 rounded-lg px-2 py-1.5 transition-colors"
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={profile?.full_name || 'User'}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-teal-500"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+                    <User className="w-5 h-5" />
+                  </div>
                 )}
-              </div>
-            </button>
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-medium text-gray-900">{profile?.full_name || user?.email || 'User'}</p>
+                  {lastLogin && (
+                    <p className="text-xs text-gray-500">Last login: {lastLogin}</p>
+                  )}
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>
