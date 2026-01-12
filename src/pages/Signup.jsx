@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Mail, Lock, User, LogIn } from 'lucide-react'
-import { motion } from 'framer-motion'
 
 const Signup = () => {
   const [fullName, setFullName] = useState('')
@@ -12,7 +11,6 @@ const Signup = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { signUp } = useAuth()
-  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -49,7 +47,7 @@ const Signup = () => {
           setError(signUpError.message || 'Failed to create account. Please try again.')
         }
       } else if (user && !signUpError) {
-        navigate('/dashboard')
+        window.location.replace('/dashboard')
       }
     } catch (err) {
       console.error('Signup form error:', err)
@@ -61,12 +59,7 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-teal-50 p-3 md:p-4 sm:p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
+      <div className="w-full max-w-md">
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-6 sm:p-8 border border-white/30 hover:border-white/50 transition-all duration-300">
           <div className="text-center mb-6 md:mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Sign up</h1>
@@ -156,9 +149,7 @@ const Signup = () => {
               </div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               type="submit"
               disabled={loading}
               className="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
@@ -171,7 +162,7 @@ const Signup = () => {
                   Sign up
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
           <div className="mt-5 md:mt-6 text-center">
@@ -183,7 +174,7 @@ const Signup = () => {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

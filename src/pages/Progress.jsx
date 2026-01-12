@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { TrendingUp, Target, Award, Calendar } from 'lucide-react'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import toast from 'react-hot-toast'
 
 const Progress = () => {
@@ -12,7 +11,7 @@ const Progress = () => {
   const [nutritionStats, setNutritionStats] = useState([])
   const [weightHistory, setWeightHistory] = useState([])
   const [milestones, setMilestones] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -165,17 +164,7 @@ const Progress = () => {
       setWorkoutStats([])
       setNutritionStats([])
       setMilestones([])
-    } finally {
-      setLoading(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-      </div>
-    )
   }
 
   const totalWorkouts = workoutStats.reduce((sum, day) => sum + day.workouts, 0)
@@ -193,15 +182,11 @@ const Progress = () => {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20"
-        >
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
           <h3 className="text-sm text-gray-600 mb-1">Total Workouts</h3>
           <p className="text-3xl font-bold text-gray-900">{totalWorkouts}</p>
           <p className="text-sm text-gray-500 mt-1">Last 7 days</p>
-        </motion.div>
+        </div>
 
         <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
           <h3 className="text-sm text-gray-600 mb-1">Calories Burned</h3>
@@ -231,12 +216,7 @@ const Progress = () => {
 
       {/* Activity Chart */}
       {workoutStats.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20"
-        >
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
           <h2 className="text-xl font-bold text-gray-900 mb-6">7-Day Activity Overview</h2>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={workoutStats}>
@@ -256,7 +236,7 @@ const Progress = () => {
               <Line type="monotone" dataKey="workoutCalories" stroke="#f97316" strokeWidth={3} dot={{ fill: '#f97316', r: 6 }} name="Calories Burned" />
             </LineChart>
           </ResponsiveContainer>
-        </motion.div>
+        </div>
       )}
 
       {/* Milestones */}
@@ -267,16 +247,13 @@ const Progress = () => {
             {milestones.map((milestone, index) => {
               const Icon = milestone.icon
               return (
-                <motion.div
+                <div
                   key={index}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
                   className={`bg-gradient-to-r ${milestone.color} rounded-2xl shadow-lg p-6 text-white`}
                 >
                   <Icon className="w-8 h-8 mb-3" />
                   <h3 className="text-lg font-semibold">{milestone.label}</h3>
-                </motion.div>
+                </div>
               )
             })}
           </div>
@@ -284,15 +261,11 @@ const Progress = () => {
       )}
 
       {milestones.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-12 border border-white/20 text-center"
-        >
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-12 border border-white/20 text-center">
           <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-gray-900 mb-2">Keep Going!</h3>
           <p className="text-gray-600">Complete more workouts to unlock achievements and milestones.</p>
-        </motion.div>
+        </div>
       )}
     </div>
   )

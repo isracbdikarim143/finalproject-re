@@ -53,18 +53,18 @@ const ProfileDrawer = ({ isOpen, onClose }) => {
     }
   }
 
-  if (!isOpen) return null
-
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
-        onClick={onClose}
-      />
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
+          onClick={onClose}
+        />
+      )}
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transform transition-transform overflow-y-auto">
+      <div className={`fixed right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">

@@ -14,7 +14,6 @@ import Dashboard from './pages/Dashboard'
 import Workouts from './pages/Workouts'
 import Nutrition from './pages/Nutrition'
 import Progress from './pages/Progress'
-import Profile from './pages/Profile'
 
 function App() {
   // Comprehensive debug logging - ALWAYS runs in production too
@@ -102,16 +101,6 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Progress />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Profile />
                 </Layout>
               </ProtectedRoute>
             }

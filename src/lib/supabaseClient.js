@@ -28,50 +28,48 @@ export const isMobileDevice = () => {
 // MOBILE FIX: Force localStorage for mobile browsers (more reliable than cookies)
 const storage = typeof window !== 'undefined' ? window.localStorage : null
 
-// Standard Supabase client initialization with mobile-optimized settings
+// Standard Supabase client initialization with robust configuration
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder',
   {
     auth: {
-      persistSession: true, // REQUIRED: Mobile browsers need this to hold login state
-      autoRefreshToken: true, // REQUIRED: Mobile browsers need token refresh
-      detectSessionInUrl: true, // REQUIRED: Mobile browsers need URL session detection
-      flowType: 'implicit', // MOBILE FIX: 'implicit' flow is more successful on mobile browsers that block complex redirects
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'implicit',
       redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://finalproject-re.vercel.app',
-      storage: storage, // EXPLICIT: Force localStorage for mobile reliability
-      storageKey: 'sb-auth-token', // Default key, but explicit for clarity
+      storage: storage,
+      storageKey: 'sb-auth-token',
     },
     global: {
       headers: {
         'X-Client-Info': 'healthhub@1.0.0',
         'x-my-custom-header': 'my-app', // MOBILE FIX: Custom header can bypass mobile ISP 'transparent proxies' that interfere with database traffic
       },
-      // MOBILE FIX: Increase fetch timeout to 15 seconds for mobile networks
-      fetch: (url, options = {}) => {
-        const isMobile = isMobileDevice()
-        const timeout = isMobile ? 15000 : 10000 // 15 seconds for mobile, 10 for desktop
-        
-        // Create AbortController for timeout
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), timeout)
-        
-        return fetch(url, {
-          ...options,
-          signal: controller.signal,
-        })
-          .then(response => {
-            clearTimeout(timeoutId)
-            return response
+      // Robust fetch with error handling - never leave app in loading state
+      fetch: async (url, options = {}) => {
+        try {
+          const isMobile = isMobileDevice()
+          const timeout = isMobile ? 15000 : 10000
+          
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), timeout)
+          
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
           })
-          .catch(error => {
-            clearTimeout(timeoutId)
-            if (error.name === 'AbortError') {
-              console.error('⏱️ Supabase request timeout after', timeout, 'ms')
-              throw new Error(`Request timeout after ${timeout}ms. Please check your connection.`)
-            }
-            throw error
-          })
+          
+          clearTimeout(timeoutId)
+          return response
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            console.error('⏱️ Supabase request timeout')
+            throw new Error('Request timeout. Please check your connection.')
+          }
+          throw error
+        }
       },
     },
     realtime: {

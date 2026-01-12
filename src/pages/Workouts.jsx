@@ -11,43 +11,27 @@ const Workouts = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [completedWorkouts, setCompletedWorkouts] = useState([])
   const [todayWorkouts, setTodayWorkouts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [completingId, setCompletingId] = useState(null)
   const [error, setError] = useState(null)
-  const [timeoutExceeded, setTimeoutExceeded] = useState(false)
 
   const categories = ['All', 'Chest', 'Legs', 'Abs', 'Cardio', 'Arms']
 
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false)
       setError('User not authenticated')
       return
     }
 
-    setLoading(true)
-    setTimeoutExceeded(false)
-
-    // 3-second timeout
-    const timer = setTimeout(() => {
-      if (loading) {
-        console.warn('Workouts: Data loading timeout exceeded (3s). Showing empty state.')
-        setTimeoutExceeded(true)
-        setLoading(false)
-      }
-    }, 3000)
-
-    loadTodayWorkouts().finally(() => clearTimeout(timer))
+    loadTodayWorkouts()
   }, [user?.id])
 
   const loadTodayWorkouts = async () => {
     if (!user?.id) {
-      setLoading(false)
       return
     }
 
     try {
-      setLoading(true)
       setError(null)
 
       const today = new Date()
@@ -87,8 +71,6 @@ const Workouts = () => {
       console.error('Error loading workouts:', error)
       setError(`Failed to load workouts: ${error.message || 'Unknown error'}`)
       toast.error(`Failed to load workouts: ${error.message || 'Unknown error'}`)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -173,34 +155,6 @@ const Workouts = () => {
     }
   }
 
-  if (loading && !timeoutExceeded) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading workouts...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show empty state if timeout exceeded and no data
-  if (!loading && timeoutExceeded && todayWorkouts.length === 0 && filteredWorkouts.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-            <Dumbbell className="w-10 h-10 text-teal-600" />
-            Workout Library
-          </h1>
-          <p className="text-gray-600 mt-2">Choose a workout and track your progress</p>
-        </div>
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No workouts found. Data loading timed out or no data available.</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">

@@ -14,31 +14,17 @@ const Nutrition = () => {
   const [todayLogs, setTodayLogs] = useState([])
   const [dailyTotals, setDailyTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [waterAmount, setWaterAmount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [timeoutExceeded, setTimeoutExceeded] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   // Get all unique categories
   const categories = ['All', ...new Set(somaliFoods.map(food => food.category))]
 
   useEffect(() => {
     if (!user) {
-      setLoading(false)
       return
     }
 
-    setLoading(true)
-    setTimeoutExceeded(false)
-
-    // 3-second timeout
-    const timer = setTimeout(() => {
-      if (loading) {
-        console.warn('Nutrition: Data loading timeout exceeded (3s). Showing empty state.')
-        setTimeoutExceeded(true)
-        setLoading(false)
-      }
-    }, 3000)
-
-    loadTodayLogs().finally(() => clearTimeout(timer))
+    loadTodayLogs()
 
     // Real-time subscription for nutrition
     const nutritionChannel = supabase
@@ -82,12 +68,10 @@ const Nutrition = () => {
 
   const loadTodayLogs = async () => {
     if (!user) {
-      setLoading(false)
       return
     }
 
     try {
-      setLoading(true)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
@@ -136,8 +120,6 @@ const Nutrition = () => {
     } catch (error) {
       console.error('Error loading logs:', error)
       toast.error(`Failed to load nutrition logs: ${error.message || 'Unknown error'}`)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -274,7 +256,7 @@ const Nutrition = () => {
               style={{ width: `${Math.min(progress, 100)}%` }}
             ></div>
           </div>
-        </motion.div>
+        </div>
 
         <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-6 border border-white/20">
           <h3 className="text-sm text-gray-600 mb-1">Protein</h3>
@@ -316,7 +298,7 @@ const Nutrition = () => {
             Add 250ml
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Search and Filter */}
       <div className="space-y-4">
