@@ -97,9 +97,13 @@ const Progress = () => {
         // Continue with empty nutrition array
       }
 
+      // EMERGENCY FIX: Ensure workouts and nutrition are arrays even if aborted
+      const safeWorkouts = workouts || []
+      const safeNutrition = nutrition || []
+
       // Process workout stats by date
       const workoutMap = {}
-      ;(workouts || []).forEach((workout) => {
+      safeWorkouts.forEach((workout) => {
         const date = new Date(workout.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (!workoutMap[date]) {
           workoutMap[date] = { date, workouts: 0, calories: 0 }
@@ -110,7 +114,7 @@ const Progress = () => {
 
       // Process nutrition stats by date
       const nutritionMap = {}
-      ;(nutrition || []).forEach((item) => {
+      safeNutrition.forEach((item) => {
         const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (!nutritionMap[date]) {
           nutritionMap[date] = { date, calories: 0, protein: 0, carbs: 0, fat: 0 }
@@ -136,9 +140,9 @@ const Progress = () => {
       setNutritionStats(Object.values(nutritionMap).slice(-7)) // Last 7 days
 
       // Calculate milestones
-      const totalWorkouts = (workouts || []).length
-      const totalCalories = (workouts || []).reduce((sum, w) => sum + (w.calories_burned || 0), 0)
-      const totalDaysActive = new Set((workouts || []).map((w) => new Date(w.created_at).toDateString())).size
+      const totalWorkouts = safeWorkouts.length
+      const totalCalories = safeWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0)
+      const totalDaysActive = new Set(safeWorkouts.map((w) => new Date(w.created_at).toDateString())).size
 
       const newMilestones = []
       if (totalWorkouts >= 10) newMilestones.push({ icon: Award, label: '10 Workouts Completed', color: 'from-green-500 to-emerald-500' })

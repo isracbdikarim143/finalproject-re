@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard'
 import Workouts from './pages/Workouts'
 import Nutrition from './pages/Nutrition'
 import Progress from './pages/Progress'
+import Profile from './pages/Profile'
 
 // Inner App component that can use hooks
 const AppContent = () => {
@@ -129,6 +130,16 @@ const AppContent = () => {
             <ProtectedRoute>
               <Layout>
                 <Progress />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Profile />
               </Layout>
             </ProtectedRoute>
           }

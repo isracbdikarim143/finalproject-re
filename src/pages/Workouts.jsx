@@ -131,9 +131,6 @@ const Workouts = () => {
         toast.error('Workout logged but no data returned')
       }
     } catch (error) {
-      // CRITICAL FIX: Reset completingId immediately at start of catch block
-      setCompletingId(null)
-      
       // Silent catch for AbortError - prevents console errors during presentation
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
@@ -141,7 +138,7 @@ const Workouts = () => {
       console.error('Error completing workout:', error)
       toast.error(`Failed to log workout: ${error.message || 'Unknown error'}`)
     } finally {
-      // Ensure completingId is always reset
+      // EMERGENCY FIX: Reset completingId FIRST in finally block to prevent stuck state
       setCompletingId(null)
     }
   }

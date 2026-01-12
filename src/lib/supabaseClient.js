@@ -47,7 +47,7 @@ export const supabase = createClient(
         'X-Client-Info': 'healthhub@1.0.0',
         'x-my-custom-header': 'my-app', // MOBILE FIX: Custom header can bypass mobile ISP 'transparent proxies' that interfere with database traffic
       },
-      // Robust fetch with error handling - never leave app in loading state
+      // EMERGENCY FIX: Global fetch wrapper with complete AbortError silence
       fetch: async (url, options = {}) => {
         try {
           const isMobile = isMobileDevice()
@@ -56,17 +56,26 @@ export const supabase = createClient(
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), timeout)
           
-          const response = await fetch(url, {
-            ...options,
-            signal: controller.signal,
-          })
-          
-          clearTimeout(timeoutId)
-          return response
+          try {
+            const response = await fetch(url, {
+              ...options,
+              signal: controller.signal,
+            })
+            
+            clearTimeout(timeoutId)
+            return response
+          } catch (fetchError) {
+            clearTimeout(timeoutId)
+            // EMERGENCY FIX: Complete AbortError silence - ignore completely to prevent UI freeze
+            if (fetchError?.name === 'AbortError' || fetchError?.message?.includes('aborted')) {
+              // Return empty response that Supabase handles gracefully
+              return new Response(null, { status: 408, statusText: 'Request Timeout' })
+            }
+            throw fetchError
+          }
         } catch (error) {
-          // CRITICAL FIX: Global AbortError silence - prevents app freezing when user switches tabs quickly
+          // EMERGENCY FIX: Double-layer AbortError protection
           if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-            // Return a response that Supabase can handle gracefully without logging errors
             return new Response(null, { status: 408, statusText: 'Request Timeout' })
           }
           throw error
