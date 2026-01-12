@@ -14,6 +14,7 @@ const Nutrition = () => {
   const [todayLogs, setTodayLogs] = useState([])
   const [dailyTotals, setDailyTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [waterAmount, setWaterAmount] = useState(0)
+  // CRITICAL FIX: Initialize loading as false to prevent blocking buttons/search
   const [loading, setLoading] = useState(false)
 
   // Get all unique categories
@@ -131,6 +132,7 @@ const Nutrition = () => {
     if (!user) return
 
     try {
+      // CRITICAL FIX: Don't block UI - async operation without loading state
       const { error } = await supabase.from('nutrition').insert({
         user_id: user.id,
         food_name: food.name,
@@ -140,13 +142,20 @@ const Nutrition = () => {
         fat: food.fat,
       })
 
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        return
+      }
+
       if (error) throw error
 
       toast.success(`✅ ${food.name} logged!`)
       setSelectedFood(null)
+      // Refresh logs in background without blocking
+      loadTodayLogs()
     } catch (error) {
       // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
       console.error('Error logging food:', error)

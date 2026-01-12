@@ -73,8 +73,10 @@ const Progress = () => {
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true })
 
-      // Handle workout error gracefully - table might not exist
-      if (workoutError) {
+      // CRITICAL FIX: Silent catch for AbortError - allows charts to render even if request cancelled
+      if (workoutError && (workoutError.name === 'AbortError' || workoutError.message?.includes('aborted'))) {
+        // Continue with empty workouts array - don't block chart rendering
+      } else if (workoutError) {
         console.warn('Workout logs error (table might not exist):', workoutError)
         // Continue with empty workouts array
       }
@@ -87,8 +89,10 @@ const Progress = () => {
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true })
 
-      // Handle nutrition error gracefully - table might not exist
-      if (nutritionError) {
+      // CRITICAL FIX: Silent catch for AbortError - allows charts to render even if request cancelled
+      if (nutritionError && (nutritionError.name === 'AbortError' || nutritionError.message?.includes('aborted'))) {
+        // Continue with empty nutrition array - don't block chart rendering
+      } else if (nutritionError) {
         console.warn('Nutrition error (table might not exist):', nutritionError)
         // Continue with empty nutrition array
       }
@@ -155,6 +159,15 @@ const Progress = () => {
         ])
       }
     } catch (error) {
+      // CRITICAL FIX: Silent catch for AbortError - prevents console errors and allows charts to render
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        // Set empty arrays but don't show error - charts can still render
+        setWorkoutStats([])
+        setNutritionStats([])
+        setMilestones([])
+        return
+      }
+      
       console.error('Error loading progress data:', error)
       // Only show error toast for critical errors, not for missing tables
       if (error.code !== 'PGRST116' && !error.message?.includes('relation') && !error.message?.includes('does not exist')) {

@@ -64,8 +64,8 @@ export const supabase = createClient(
           clearTimeout(timeoutId)
           return response
         } catch (error) {
-          // Silent catch for AbortError - prevents console errors during presentation
-          if (error.name === 'AbortError') {
+          // CRITICAL FIX: Global AbortError silence - prevents app freezing when user switches tabs quickly
+          if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
             // Return a response that Supabase can handle gracefully without logging errors
             return new Response(null, { status: 408, statusText: 'Request Timeout' })
           }
