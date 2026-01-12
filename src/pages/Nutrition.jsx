@@ -207,32 +207,6 @@ const Nutrition = () => {
   const dailyGoal = 2000 // calories
   const progress = (dailyTotals.calories / dailyGoal) * 100
 
-  if (loading && !timeoutExceeded) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-      </div>
-    )
-  }
-
-  // Show empty state if timeout exceeded and no data
-  if (!loading && timeoutExceeded && todayLogs.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-            <Apple className="w-10 h-10 text-teal-600" />
-            Nutrition Tracker
-          </h1>
-          <p className="text-gray-600 mt-2">Track your meals and water intake</p>
-        </div>
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No nutrition data found. Data loading timed out or no data available.</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="mb-6">
