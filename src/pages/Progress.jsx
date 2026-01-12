@@ -13,51 +13,52 @@ const Progress = () => {
   const [milestones, setMilestones] = useState([])
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.id) return
 
+    const userId = user.id // Safe after null check
     loadProgressData()
 
-      // Real-time subscriptions for workout_logs and nutrition
-      const workoutChannel = supabase
-        .channel('progress-workout-logs')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'workout_logs',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            loadProgressData()
-          }
-        )
-        .subscribe()
+    // Real-time subscriptions for workout_logs and nutrition
+    const workoutChannel = supabase
+      .channel('progress-workout-logs')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'workout_logs',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          loadProgressData()
+        }
+      )
+      .subscribe()
 
-      const nutritionChannel = supabase
-        .channel('progress-nutrition')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'nutrition',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            loadProgressData()
-          }
-        )
-        .subscribe()
+    const nutritionChannel = supabase
+      .channel('progress-nutrition')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'nutrition',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          loadProgressData()
+        }
+      )
+      .subscribe()
 
     return () => {
       supabase.removeChannel(workoutChannel)
       supabase.removeChannel(nutritionChannel)
     }
-  }, [user])
+  }, [user?.id])
 
   const loadProgressData = async () => {
-    if (!user) return
+    if (!user?.id) return
 
     try {
       // Load workout statistics (last 30 days)

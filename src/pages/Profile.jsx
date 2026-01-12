@@ -58,6 +58,11 @@ const Profile = () => {
   }
 
   const handleAvatarUpload = async (event) => {
+    if (!user?.id) {
+      toast.error('You must be logged in to upload an avatar')
+      return
+    }
+
     try {
       setUploading(true)
       const file = event.target.files?.[0]

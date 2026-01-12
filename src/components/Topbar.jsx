@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import ProfileDrawer from './ProfileDrawer'
 
 const Topbar = () => {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')

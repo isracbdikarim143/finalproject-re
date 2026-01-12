@@ -4,6 +4,14 @@ import { createClient } from '@supabase/supabase-js'
 let supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// STEP 1: Env Var Check - Friendly error instead of crashing
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('⚠️ CRITICAL: Supabase environment variables are missing!')
+  console.error('   Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file or Vercel settings.')
+  console.error('   The app will continue but database features will not work.')
+  // Don't throw - allow app to render with placeholder values
+}
+
 // MOBILE FIX: Force HTTPS protocol - mobile browsers sometimes strip the protocol
 if (supabaseUrl && typeof supabaseUrl === 'string') {
   // Remove any existing protocol

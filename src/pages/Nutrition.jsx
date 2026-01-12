@@ -19,10 +19,11 @@ const Nutrition = () => {
   const categories = ['All', ...new Set(somaliFoods.map(food => food.category))]
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       return
     }
 
+    const userId = user.id // Safe after null check
     loadTodayLogs()
 
     // Real-time subscription for nutrition
@@ -34,7 +35,7 @@ const Nutrition = () => {
           event: '*',
           schema: 'public',
           table: 'nutrition',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           loadTodayLogs()
@@ -51,7 +52,7 @@ const Nutrition = () => {
           event: '*',
           schema: 'public',
           table: 'water_logs',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           loadTodayLogs()
@@ -63,10 +64,10 @@ const Nutrition = () => {
       supabase.removeChannel(nutritionChannel)
       supabase.removeChannel(waterChannel)
     }
-  }, [user])
+  }, [user?.id])
 
   const loadTodayLogs = async () => {
-    if (!user) {
+    if (!user?.id) {
       return
     }
 
@@ -78,7 +79,7 @@ const Nutrition = () => {
       const { data: nutritionData, error: nutritionError } = await supabase
         .from('nutrition')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .gte('created_at', today.toISOString())
         .order('created_at', { ascending: false })
 
@@ -106,7 +107,7 @@ const Nutrition = () => {
       const { data: waterData, error: waterError } = await supabase
         .from('water_logs')
         .select('amount_ml')
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .gte('created_at', today.toISOString())
 
       if (waterError) {
@@ -127,7 +128,7 @@ const Nutrition = () => {
   }
 
   const handleLogFood = async (food) => {
-    if (!user) return
+    if (!user?.id) return
 
     // OPTIMISTIC UI UPDATE: Update totals immediately
     const tempLog = {
@@ -151,7 +152,7 @@ const Nutrition = () => {
 
     try {
       const { data, error } = await supabase.from('nutrition').insert({
-        user_id: user.id,
+        user_id: user?.id,
         food_name: food.name,
         calories: food.calories,
         protein: food.protein,
@@ -248,7 +249,7 @@ const Nutrition = () => {
   }
 
   const handleAddWater = async () => {
-    if (!user) {
+    if (!user?.id) {
       toast.error('You must be logged in to log water')
       return
     }
@@ -261,7 +262,7 @@ const Nutrition = () => {
       const { data, error } = await supabase
         .from('water_logs')
         .insert({
-          user_id: user.id,
+          user_id: user?.id,
           amount_ml: 250,
         })
         .select()

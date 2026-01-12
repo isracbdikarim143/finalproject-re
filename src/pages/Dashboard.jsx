@@ -23,18 +23,19 @@ const Dashboard = () => {
       return
     }
 
+    const userId = user.id // Safe to use after null check
     loadDashboardData()
 
     // Real-time subscription for nutrition
     const nutritionChannel = supabase
-      .channel(`nutrition-changes-${user.id}`)
+      .channel(`nutrition-changes-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'nutrition',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           loadDashboardData()
@@ -44,14 +45,14 @@ const Dashboard = () => {
 
     // Real-time subscription for workout_logs
     const workoutChannel = supabase
-      .channel(`workout-log-changes-${user.id}`)
+      .channel(`workout-log-changes-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'workout_logs',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           loadDashboardData()
@@ -61,14 +62,14 @@ const Dashboard = () => {
 
     // Real-time subscription for water_logs
     const waterChannel = supabase
-      .channel(`water-log-changes-${user.id}`)
+      .channel(`water-log-changes-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'water_logs',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           loadDashboardData()
