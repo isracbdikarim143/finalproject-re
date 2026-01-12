@@ -35,6 +35,12 @@ export const AuthProvider = ({ children }) => {
     supabase.auth
       .getSession()
       .then(({ data: { session }, error }) => {
+        // Silent catch for AbortError - prevents console errors during presentation
+        if (error && error.name === 'AbortError') {
+          setLoading(false)
+          return
+        }
+        
         if (error) {
           console.error('❌ AuthContext: Error getting session:', error)
           setLoading(false)
@@ -51,6 +57,11 @@ export const AuthProvider = ({ children }) => {
         }
       })
       .catch((error) => {
+        // Silent catch for AbortError - prevents console errors during presentation
+        if (error.name === 'AbortError') {
+          setLoading(false)
+          return
+        }
         console.error('❌ AuthContext: Failed to initialize auth:', error)
         setLoading(false)
       })
@@ -76,6 +87,11 @@ export const AuthProvider = ({ children }) => {
           setLoading(false)
         }
       } catch (error) {
+        // Silent catch for AbortError - prevents console errors during presentation
+        if (error.name === 'AbortError') {
+          setLoading(false)
+          return
+        }
         console.error('❌ AuthContext: Auth state change error:', error)
         setLoading(false)
       }
@@ -98,6 +114,11 @@ export const AuthProvider = ({ children }) => {
         .eq('id', userId)
         .single()
 
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error && error.name === 'AbortError') {
+        return
+      }
+
       if (error && error.code !== 'PGRST116') {
         console.error('❌ AuthContext: Error loading profile:', error)
         toast.error('Failed to load profile')
@@ -106,6 +127,10 @@ export const AuthProvider = ({ children }) => {
         setProfile(data)
       }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('❌ AuthContext: loadProfile exception:', error)
     } finally {
       // Don't set loading here - it might block navigation
@@ -122,6 +147,11 @@ export const AuthProvider = ({ children }) => {
         password,
       })
 
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error && error.name === 'AbortError') {
+        return { user: null, error }
+      }
+
       if (error) {
         console.error('❌ AuthContext: signUp error:', error)
         throw error
@@ -130,18 +160,28 @@ export const AuthProvider = ({ children }) => {
       if (data.user) {
         console.log('✅ AuthContext: User created:', data.user.id)
         // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            full_name: fullName,
-            last_sign_in_at: new Date().toISOString(),
-          })
+        try {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              full_name: fullName,
+              last_sign_in_at: new Date().toISOString(),
+            })
 
-        if (profileError) {
-          console.error('❌ AuthContext: Profile creation error:', profileError)
-        } else {
-          console.log('✅ AuthContext: Profile created')
+          // Silent catch for AbortError - prevents console errors during presentation
+          if (profileError && profileError.name === 'AbortError') {
+            // Continue - profile creation is non-critical for signup flow
+          } else if (profileError) {
+            console.error('❌ AuthContext: Profile creation error:', profileError)
+          } else {
+            console.log('✅ AuthContext: Profile created')
+          }
+        } catch (profileErr) {
+          // Silent catch for AbortError - prevents console errors during presentation
+          if (profileErr.name !== 'AbortError') {
+            console.error('❌ AuthContext: Profile creation exception:', profileErr)
+          }
         }
 
         toast.success('Welcome! ✅ Please check your email to confirm your account.')
@@ -151,6 +191,10 @@ export const AuthProvider = ({ children }) => {
       console.warn('⚠️ AuthContext: signUp - no user returned')
       return { user: null, error: new Error('No user returned') }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return { user: null, error }
+      }
       console.error('❌ AuthContext: Sign up error:', error)
       toast.error(error.message || 'Failed to sign up')
       return { user: null, error }
@@ -184,6 +228,11 @@ export const AuthProvider = ({ children }) => {
         errorMessage: error?.message 
       })
 
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error && error.name === 'AbortError') {
+        return { user: null, error }
+      }
+
       if (error) {
         console.error('❌ AuthContext: Login error:', error)
         
@@ -207,7 +256,12 @@ export const AuthProvider = ({ children }) => {
             .eq('id', data.user.id)
           console.log('✅ AuthContext: Last sign in updated')
         } catch (profileError) {
-          console.warn('⚠️ AuthContext: Could not update last sign in:', profileError)
+          // Silent catch for AbortError - prevents console errors during presentation
+          if (profileError.name === 'AbortError') {
+            // Continue - profile update is non-critical
+          } else {
+            console.warn('⚠️ AuthContext: Could not update last sign in:', profileError)
+          }
         }
 
         toast.success('Welcome back! ✅')
@@ -218,6 +272,11 @@ export const AuthProvider = ({ children }) => {
       console.warn('⚠️ AuthContext: No user data returned from signIn')
       return { user: null, error: new Error('No user data returned') }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return { user: null, error }
+      }
+      
       console.error('❌ AuthContext: Sign in error:', error)
       
       // Handle network/fetch errors specifically
@@ -252,10 +311,20 @@ export const AuthProvider = ({ children }) => {
     console.log('🔓 AuthContext: signOut called')
     try {
       const { error } = await supabase.auth.signOut()
+      
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error && error.name === 'AbortError') {
+        return
+      }
+      
       if (error) throw error
       toast.success('Signed out successfully')
       console.log('✅ AuthContext: Sign out successful')
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return
+      }
       console.error('❌ AuthContext: Sign out error:', error)
       toast.error('Failed to sign out')
     }
@@ -272,12 +341,21 @@ export const AuthProvider = ({ children }) => {
         .select()
         .single()
 
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error && error.name === 'AbortError') {
+        return { data: null, error }
+      }
+
       if (error) throw error
 
       setProfile(data)
       toast.success('Profile updated! ✅')
       return { data, error: null }
     } catch (error) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (error.name === 'AbortError') {
+        return { data: null, error }
+      }
       console.error('Update profile error:', error)
       toast.error('Failed to update profile')
       return { data: null, error }

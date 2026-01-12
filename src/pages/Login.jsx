@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase, isMobileDevice } from '../lib/supabaseClient'
 import { Mail, Lock, LogIn, RefreshCw } from 'lucide-react'
@@ -10,6 +10,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { signIn } = useAuth()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -55,37 +56,24 @@ const Login = () => {
       }
 
       if (result.user && !result.error) {
-        console.log('✅ Login successful, ensuring session is saved...')
+        console.log('✅ Login successful, redirecting immediately...')
         
-        // MOBILE FIX: Force session refresh to ensure it's saved locally
-        try {
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-          if (sessionError) {
-            console.error('Session refresh error:', sessionError)
-            // DIAGNOSTIC MODE: Log session error details
-            console.error('📋 Session error object:', JSON.stringify(sessionError, null, 2))
-          } else {
-            console.log('✅ Session refreshed successfully:', !!sessionData?.session)
-          }
-        } catch (sessionErr) {
-          console.error('Session refresh exception:', sessionErr)
-          // DIAGNOSTIC MODE: Log session exception details
-          console.error('📋 Session exception object:', JSON.stringify(sessionErr, Object.getOwnPropertyNames(sessionErr), 2))
-        }
-        
-        // MOBILE FIX: Wait 500ms after signIn to give mobile OS time to write auth token to disk
-        console.log('⏳ Waiting for mobile storage write...')
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        console.log('🧭 Redirecting to dashboard...')
-        // Use replace instead of href to prevent back-button and cache issues
-        window.location.replace('/dashboard')
+        // IMMEDIATE NAVIGATION: Navigate to dashboard right away
+        // The onAuthStateChange listener in AuthContext will handle session updates
+        setLoading(false)
+        navigate('/dashboard', { replace: true })
         return
       }
 
       // Fallback: no user returned
       setError('Login failed. Please try again.')
     } catch (err) {
+      // Silent catch for AbortError - prevents console errors during presentation
+      if (err.name === 'AbortError') {
+        setLoading(false)
+        return
+      }
+      
       console.error('❌ Login exception:', err)
       // DIAGNOSTIC MODE: Log full exception details
       console.error('📋 Exception object:', JSON.stringify(err, Object.getOwnPropertyNames(err), 2))
