@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase, isMobileDevice } from '../lib/supabaseClient'
-import { Flame, Droplet, Activity, Calendar } from 'lucide-react'
+import { Flame, Droplet, Activity, Calendar, Target } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import toast from 'react-hot-toast'
 

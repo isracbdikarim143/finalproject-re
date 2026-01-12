@@ -104,10 +104,12 @@ const Workouts = () => {
     try {
       const userId = user.id
 
+      // CORE REBUILD: Insert into workout_logs with user_id, duration, calories, workout_id
       const { data, error: insertError } = await supabase
         .from('workout_logs')
         .insert({
           user_id: userId,
+          workout_id: workout.id || workout.name, // Use workout.id if available, fallback to name
           workout_type: workout.name,
           duration_mins: workout.duration || 0,
           calories_burned: workout.calories || 0,
@@ -147,7 +149,7 @@ const Workouts = () => {
           const filtered = prev.filter(w => w.id !== newWorkout.id)
           return [data[0], ...filtered]
         })
-        toast.success(`Great Job! ✅ You completed ${workout.name}!`)
+        toast.success('Workout completed successfully ✅')
       } else {
         // Revert if no data returned
         setTodayWorkouts(prev => prev.filter(w => w.id !== newWorkout.id))

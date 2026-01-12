@@ -83,7 +83,7 @@ const Nutrition = () => {
         .order('created_at', { ascending: false })
 
       if (nutritionError) {
-        console.error('Nutrition logs error:', nutritionError)
+        // Error handled by toast below
         throw nutritionError
       }
 
@@ -242,7 +242,7 @@ const Nutrition = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error deleting log:', error)
+      // Error handled by toast below
       toast.error('Failed to delete log')
     }
   }

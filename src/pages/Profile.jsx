@@ -78,12 +78,9 @@ const Profile = () => {
       return
     }
 
-    // OPTIMISTIC UI: Show preview immediately
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setAvatarUrl(e.target?.result || null)
-    }
-    reader.readAsDataURL(file)
+    // CORE REBUILD: Use URL.createObjectURL for instant preview (mobile-friendly)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarUrl(previewUrl)
 
     try {
       setUploading(true)
@@ -149,14 +146,14 @@ const Profile = () => {
     return (weight / (heightM * heightM)).toFixed(1)
   }
 
-  // Get BMI category
+  // CORE REBUILD: Get BMI category with exact ranges
   const getBMICategory = (bmi) => {
     if (!bmi) return null
     const bmiValue = parseFloat(bmi)
     if (bmiValue < 18.5) return { label: 'Underweight', color: 'text-blue-600' }
-    if (bmiValue < 25) return { label: 'Normal', color: 'text-green-600' }
-    if (bmiValue < 30) return { label: 'Overweight', color: 'text-orange-600' }
-    return { label: 'Obese', color: 'text-red-600' }
+    if (bmiValue >= 18.5 && bmiValue < 25) return { label: 'Normal', color: 'text-green-600' }
+    if (bmiValue >= 25 && bmiValue < 30) return { label: 'Overweight', color: 'text-orange-600' }
+    return { label: 'Obese', color: 'text-red-600' } // 30+
   }
 
   const currentBMI = profile?.height_cm && profile?.weight_kg 

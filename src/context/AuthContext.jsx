@@ -113,6 +113,9 @@ export const AuthProvider = ({ children }) => {
         return
       }
       toast.error(`Failed to load profile: ${error.message || 'Unknown error'}`)
+    } finally {
+      // Ensure loading state is always cleared
+      setLoading(false)
     }
   }
 

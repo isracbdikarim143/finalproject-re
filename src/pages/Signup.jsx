@@ -50,7 +50,7 @@ const Signup = () => {
         window.location.replace('/dashboard')
       }
     } catch (err) {
-      console.error('Signup form error:', err)
+      // Error handled by toast
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)

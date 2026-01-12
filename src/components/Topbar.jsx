@@ -325,9 +325,13 @@ const Topbar = () => {
                         try {
                           await signOut()
                           setShowProfileDrawer(false)
-                          navigate('/login')
+                          // CORE REBUILD: Use window.location.replace for hard redirect
+                          window.location.replace('/login')
                         } catch (error) {
-                          toast.error('Failed to logout')
+                          if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+                            return
+                          }
+                          toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
                         }
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
