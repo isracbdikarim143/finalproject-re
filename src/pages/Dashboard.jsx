@@ -115,10 +115,10 @@ const Dashboard = () => {
           .eq('user_id', userId)
           .gte('created_at', todayISO),
         
-        // Today's workout logs
+        // CORE LOGIC: Today's workout logs - fetch user_id, calories_burned, duration_mins
         supabase
           .from('workout_logs')
-          .select('calories_burned')
+          .select('calories_burned, duration_mins, workout_type')
           .eq('user_id', userId)
           .gte('created_at', todayISO),
         
@@ -136,10 +136,10 @@ const Dashboard = () => {
           .eq('user_id', userId)
           .gte('created_at', sevenDaysAgo.toISOString()),
         
-        // Activity workout data
+        // CORE LOGIC: Activity workout data - fetch from workout_logs table
         supabase
           .from('workout_logs')
-          .select('calories_burned, created_at')
+          .select('calories_burned, duration_mins, created_at')
           .eq('user_id', userId)
           .gte('created_at', sevenDaysAgo.toISOString()),
       ])
@@ -152,14 +152,18 @@ const Dashboard = () => {
         // Silent fail - continue with 0 calories
       }
 
-      // Process workout data
+      // Process workout data - CORE LOGIC: Fetch from workout_logs table
       let workoutCalories = 0
       let workoutCount = 0
       if (workoutResult.status === 'fulfilled' && workoutResult.value.data) {
         workoutCalories = workoutResult.value.data.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
         workoutCount = workoutResult.value.data.length || 0
       } else if (workoutResult.status === 'rejected') {
-        console.warn('Workout logs fetch error:', workoutResult.reason)
+        // Silent fail - continue with 0 workouts
+        const error = workoutResult.reason
+        if (error && !error.message?.includes('relation') && !error.message?.includes('does not exist')) {
+          toast.error(`Failed to load workout data: ${error.message || 'Unknown error'}`)
+        }
       }
 
       // Process water data
@@ -225,6 +229,29 @@ const Dashboard = () => {
     }
   }
 
+  // Calculate BMI for dashboard display
+  const calculateBMI = (weightKg, heightCm) => {
+    if (!weightKg || !heightCm) return null
+    const heightM = parseFloat(heightCm) / 100
+    const weight = parseFloat(weightKg)
+    if (heightM <= 0 || weight <= 0) return null
+    return (weight / (heightM * heightM)).toFixed(1)
+  }
+
+  const getBMICategory = (bmi) => {
+    if (!bmi) return null
+    const bmiValue = parseFloat(bmi)
+    if (bmiValue < 18.5) return { label: 'Underweight', color: 'text-blue-600' }
+    if (bmiValue < 25) return { label: 'Normal', color: 'text-green-600' }
+    if (bmiValue < 30) return { label: 'Overweight', color: 'text-orange-600' }
+    return { label: 'Obese', color: 'text-red-600' }
+  }
+
+  const userBMI = profile?.height_cm && profile?.weight_kg 
+    ? calculateBMI(profile.weight_kg, profile.height_cm) 
+    : null
+  const bmiCategory = userBMI ? getBMICategory(userBMI) : null
+
   const statCards = [
     {
       icon: Flame,
@@ -280,7 +307,7 @@ const Dashboard = () => {
       )}
 
       {/* Stats Cards - Enhanced Glassmorphism */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {statCards.map((stat) => {
           const Icon = stat.icon
           return (
@@ -296,9 +323,6 @@ const Dashboard = () => {
                   <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} shadow-lg`}>
                     <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
-                  <a href="#" className="text-xs md:text-sm text-teal-600 hover:text-teal-700 font-medium opacity-70 hover:opacity-100 transition-opacity">
-                    View all
-                  </a>
                 </div>
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
                   {stat.value} <span className="text-sm md:text-lg text-gray-500 font-normal">{stat.unit}</span>
@@ -308,6 +332,24 @@ const Dashboard = () => {
             </div>
           )
         })}
+        
+        {/* BMI Card */}
+        {userBMI && bmiCategory && (
+          <div className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl p-5 md:p-6 border border-white/30 hover:border-white/50 transition-shadow hover:shadow-2xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+                  <Target className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                </div>
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
+                {userBMI} <span className="text-sm md:text-lg text-gray-500 font-normal">BMI</span>
+              </h3>
+              <p className={`text-xs md:text-sm font-medium ${bmiCategory.color}`}>{bmiCategory.label}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Activity Chart - Enhanced Glassmorphism */}

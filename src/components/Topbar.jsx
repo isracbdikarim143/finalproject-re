@@ -32,32 +32,43 @@ const Topbar = () => {
         setAvatarUrl(data.publicUrl)
       }
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error loading avatar:', error)
+      // Silent fail for avatar loading
     }
   }
 
-  // Calculate session time
+  // CORE LOGIC: Track session time from login
   const [sessionTime, setSessionTime] = useState(0)
+  const [loginTime, setLoginTime] = useState(null)
   const [lastLogin, setLastLogin] = useState('')
 
   useEffect(() => {
     if (profile?.last_sign_in_at) {
       const lastLoginDate = new Date(profile.last_sign_in_at)
+      setLoginTime(lastLoginDate)
       setLastLogin(lastLoginDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
 
+      // Update session time every minute
       const interval = setInterval(() => {
-        const now = new Date()
-        const diff = Math.floor((now - lastLoginDate) / 1000 / 60) // minutes
-        setSessionTime(diff)
+        if (loginTime) {
+          const now = new Date()
+          const diff = Math.floor((now - loginTime) / 1000 / 60) // minutes
+          setSessionTime(diff)
+        }
       }, 60000) // Update every minute
+
+      // Initial calculation
+      if (loginTime) {
+        const now = new Date()
+        const diff = Math.floor((now - loginTime) / 1000 / 60)
+        setSessionTime(diff)
+      }
 
       return () => clearInterval(interval)
     }
-  }, [profile])
+  }, [profile?.last_sign_in_at, loginTime])
 
   // Global search functionality
   useEffect(() => {

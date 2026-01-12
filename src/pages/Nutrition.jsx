@@ -120,11 +120,9 @@ const Nutrition = () => {
         setWaterAmount(totalWater)
       }
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error loading logs:', error)
       toast.error(`Failed to load nutrition logs: ${error.message || 'Unknown error'}`)
     }
   }

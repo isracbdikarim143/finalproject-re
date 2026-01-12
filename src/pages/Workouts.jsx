@@ -69,10 +69,9 @@ const Workouts = () => {
       }
     } catch (error) {
       // Silent catch for AbortError - prevents console errors during presentation
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      console.error('Error loading workouts:', error)
       setError(`Failed to load workouts: ${error.message || 'Unknown error'}`)
       toast.error(`Failed to load workouts: ${error.message || 'Unknown error'}`)
     }

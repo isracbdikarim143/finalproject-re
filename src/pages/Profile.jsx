@@ -140,8 +140,35 @@ const Profile = () => {
     }
   }
 
+  // Calculate BMI: BMI = weight(kg) / (height(m))^2
+  const calculateBMI = (weightKg, heightCm) => {
+    if (!weightKg || !heightCm) return null
+    const heightM = parseFloat(heightCm) / 100
+    const weight = parseFloat(weightKg)
+    if (heightM <= 0 || weight <= 0) return null
+    return (weight / (heightM * heightM)).toFixed(1)
+  }
+
+  // Get BMI category
+  const getBMICategory = (bmi) => {
+    if (!bmi) return null
+    const bmiValue = parseFloat(bmi)
+    if (bmiValue < 18.5) return { label: 'Underweight', color: 'text-blue-600' }
+    if (bmiValue < 25) return { label: 'Normal', color: 'text-green-600' }
+    if (bmiValue < 30) return { label: 'Overweight', color: 'text-orange-600' }
+    return { label: 'Obese', color: 'text-red-600' }
+  }
+
+  const currentBMI = profile?.height_cm && profile?.weight_kg 
+    ? calculateBMI(profile.weight_kg, profile.height_cm) 
+    : null
+  const bmiCategory = currentBMI ? getBMICategory(currentBMI) : null
+
   const handleSave = async () => {
-    if (!user) return
+    if (!user?.id) {
+      toast.error('You must be logged in to save profile')
+      return
+    }
 
     try {
       // Validate inputs
@@ -168,10 +195,16 @@ const Profile = () => {
         return
       }
 
-      if (error) throw error
+      if (error) {
+        toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
+        return
+      }
 
       setIsEditing(false)
-      toast.success('Profile updated successfully! ✅')
+      toast.success('Profile saved ✅')
+      
+      // Reload profile to get updated BMI
+      await loadProfile(user.id)
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
@@ -368,6 +401,27 @@ const Profile = () => {
               </p>
             )}
           </div>
+
+          {/* BMI Display */}
+          {currentBMI && bmiCategory && (
+            <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-lg border border-teal-200">
+              <Target className="w-5 h-5 text-teal-600" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-600">Body Mass Index (BMI)</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-2xl font-bold text-gray-900">{currentBMI}</p>
+                  <span className={`text-sm font-semibold ${bmiCategory.color}`}>
+                    {bmiCategory.label}
+                  </span>
+                </div>
+                {profile?.height_cm && profile?.weight_kg && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {profile.height_cm}cm × {profile.weight_kg}kg
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Last Sign In */}
           {profile?.last_sign_in_at && (
