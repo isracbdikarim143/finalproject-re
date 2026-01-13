@@ -223,7 +223,7 @@ const Profile = () => {
 
       console.log('💾 Saving profile updates:', updates)
 
-      // FORCE REBUILD: Save without blocking UI
+      // CORE REBUILD: Save without blocking UI
       const { data, error } = await supabase
         .from('profiles')
         .update(updates)
@@ -249,12 +249,22 @@ const Profile = () => {
           goal: data.goal || '',
         })
         
-        // Calculate and log BMI
+        // CORE REBUILD: Calculate and log BMI using the formula: BMI = weight(kg) / (height(m))^2
         if (data.height_cm && data.weight_kg) {
           const heightM = parseFloat(data.height_cm) / 100
           const weightKg = parseFloat(data.weight_kg)
           const bmi = (weightKg / (heightM * heightM)).toFixed(1)
           console.log(`📊 BMI Auto-Calculated: ${bmi}`)
+          
+          // Display BMI category
+          let category = 'Unknown'
+          const bmiValue = parseFloat(bmi)
+          if (bmiValue < 18.5) category = 'Underweight'
+          else if (bmiValue >= 18.5 && bmiValue < 25) category = 'Normal'
+          else if (bmiValue >= 25 && bmiValue < 30) category = 'Overweight'
+          else category = 'Obese'
+          
+          console.log(`📊 BMI Category: ${category}`)
         }
         
         // Reload profile in background (non-blocking)
@@ -263,10 +273,13 @@ const Profile = () => {
 
       // ZERO SPINNER POLICY: Exit editing immediately - NO BLANK PAGE
       setIsEditing(false)
-      toast.success('Profile saved successfully ✅', { duration: 3000 })
+      toast.success('Profile saved successfully! ✅', { duration: 3000 })
       console.log('✅ Profile Save Complete (no blank page)')
     } catch (error) {
       console.error('❌ Profile Save Failed:', error)
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        return
+      }
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
     }
   }

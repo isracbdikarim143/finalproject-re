@@ -16,34 +16,18 @@ const Progress = () => {
   useEffect(() => {
     if (!user?.id) return
 
-    const userId = user.id // Safe after null check
+    const userId = user.id
     loadProgressData()
 
-    // Real-time subscriptions for workout_logs and nutrition
-    const workoutChannel = supabase
-      .channel('progress-workout-logs')
+    // CORE REBUILD: Real-time subscription for activity_logs ONLY
+    const activityChannel = supabase
+      .channel(`progress-activities-${userId}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'workout_logs',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          loadProgressData()
-        }
-      )
-      .subscribe()
-
-    const nutritionChannel = supabase
-      .channel('progress-nutrition')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'nutrition',
+          table: 'activity_logs',
           filter: `user_id=eq.${userId}`,
         },
         () => {
@@ -53,8 +37,7 @@ const Progress = () => {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(workoutChannel)
-      supabase.removeChannel(nutritionChannel)
+      supabase.removeChannel(activityChannel)
     }
   }, [user?.id])
 
@@ -62,63 +45,42 @@ const Progress = () => {
     if (!user?.id) return
 
     try {
-      // CORE REBUILD: Load from activity_logs for detailed tooltip data
+      // CORE REBUILD: Load from activity_logs ONLY
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
       thirtyDaysAgo.setHours(0, 0, 0, 0)
 
-      // Try activity_logs first, fallback to individual tables
-      const [activityLogsResult, workoutsResult, nutritionResult] = await Promise.allSettled([
-        supabase
-          .from('activity_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('created_at', thirtyDaysAgo.toISOString())
-          .order('created_at', { ascending: true }),
-        
-        supabase
-          .from('workout_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('created_at', thirtyDaysAgo.toISOString())
-          .order('created_at', { ascending: true }),
-        
-        supabase
-          .from('nutrition')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('created_at', thirtyDaysAgo.toISOString())
-          .order('created_at', { ascending: true }),
-      ])
+      const { data: activities, error: activitiesError } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: true })
 
-      // Process activity_logs (primary source with detailed data)
-      let activities = []
-      let safeWorkouts = []
-      let safeNutrition = []
-      
-      if (activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data) {
-        activities = activityLogsResult.value.data
-      } else {
-        // Fallback to individual tables
-        if (workoutsResult.status === 'fulfilled' && workoutsResult.value.data) {
-          safeWorkouts = workoutsResult.value.data
+      if (activitiesError) {
+        // Handle table not found error gracefully
+        if (activitiesError.code === 'PGRST116' || activitiesError.message?.includes('does not exist')) {
+          console.warn('⚠️ activity_logs table not found. Please run SUPABASE-SCHEMA.sql')
+          setWorkoutStats([])
+          setNutritionStats([])
+          setMilestones([])
+          return
         }
-        if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
-          safeNutrition = nutritionResult.value.data
-        }
+        throw activitiesError
       }
 
-      // CORE REBUILD: Store detailed activity data by date for tooltips
-      // Use consistent date formatting function
+      console.log('📊 Progress Data Loaded:', { totalActivities: activities?.length || 0 })
+
+      // Helper function to format dates consistently
       const formatDateForMap = (dateString) => {
         const date = new Date(dateString)
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       }
       
+      // CORE REBUILD: Store detailed activity data by date for tooltips
       const detailsMap = {}
       
-      // Process activities from activity_logs
-      activities.forEach((activity) => {
+      activities?.forEach((activity) => {
         const date = formatDateForMap(activity.created_at)
         if (!detailsMap[date]) {
           detailsMap[date] = []
@@ -128,106 +90,53 @@ const Progress = () => {
           name: activity.activity_name || activity.activity_type,
           calories: activity.calories || 0,
           amount: activity.amount || 0,
-          duration: activity.metadata?.duration_mins || activity.amount || 0,
+          duration: activity.metadata?.duration_mins || activity.duration || 0,
           time: new Date(activity.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        })
-      })
-
-      // Process fallback data
-      safeWorkouts.forEach((workout) => {
-        const date = formatDateForMap(workout.created_at)
-        if (!detailsMap[date]) {
-          detailsMap[date] = []
-        }
-        detailsMap[date].push({
-          type: 'workout',
-          name: workout.workout_type || 'Workout',
-          calories: workout.calories_burned || 0,
-          amount: workout.duration_mins || 0,
-          duration: workout.duration_mins || 0,
-          time: new Date(workout.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        })
-      })
-
-      safeNutrition.forEach((item) => {
-        const date = formatDateForMap(item.created_at)
-        if (!detailsMap[date]) {
-          detailsMap[date] = []
-        }
-        detailsMap[date].push({
-          type: 'nutrition',
-          name: item.food_name || 'Food',
-          calories: item.calories || 0,
-          amount: item.calories || 0,
-          duration: 0,
-          time: new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         })
       })
 
       setActivityDetails(detailsMap)
 
-      // Aggregate stats by date using same date formatting
+      // CORE REBUILD: Aggregate stats by date from activity_logs
       const workoutMap = {}
       const nutritionMap = {}
       
-      activities.forEach((activity) => {
+      activities?.forEach((activity) => {
         const date = formatDateForMap(activity.created_at)
+        
         if (activity.activity_type === 'workout') {
           if (!workoutMap[date]) {
             workoutMap[date] = { date, workouts: 0, calories: 0 }
           }
           workoutMap[date].workouts += 1
-          workoutMap[date].calories += activity.calories || 0
+          workoutMap[date].calories += parseFloat(activity.calories) || 0
         } else if (activity.activity_type === 'nutrition') {
           if (!nutritionMap[date]) {
             nutritionMap[date] = { date, calories: 0 }
           }
-          nutritionMap[date].calories += activity.calories || 0
+          nutritionMap[date].calories += parseFloat(activity.calories) || 0
         }
       })
 
-      // Process fallback data
-      safeWorkouts.forEach((workout) => {
-        const date = formatDateForMap(workout.created_at)
-        if (!workoutMap[date]) {
-          workoutMap[date] = { date, workouts: 0, calories: 0 }
-        }
-        workoutMap[date].workouts += 1
-        workoutMap[date].calories += workout.calories_burned || 0
-      })
-
-      safeNutrition.forEach((item) => {
-        const date = formatDateForMap(item.created_at)
-        if (!nutritionMap[date]) {
-          nutritionMap[date] = { date, calories: 0 }
-        }
-        nutritionMap[date].calories += item.calories || 0
-      })
-
-      // Combine data
+      // Combine data for chart
       const allDates = [...new Set([...Object.keys(workoutMap), ...Object.keys(nutritionMap)])].sort()
 
       const statsData = allDates.map((date) => ({
         date,
         workouts: workoutMap[date]?.workouts || 0,
-        workoutCalories: workoutMap[date]?.calories || 0,
-        nutritionCalories: nutritionMap[date]?.calories || 0,
-        totalCalories: (workoutMap[date]?.calories || 0) + (nutritionMap[date]?.calories || 0),
+        workoutCalories: Math.round(workoutMap[date]?.calories || 0),
+        nutritionCalories: Math.round(nutritionMap[date]?.calories || 0),
+        totalCalories: Math.round((workoutMap[date]?.calories || 0) + (nutritionMap[date]?.calories || 0)),
       }))
 
       setWorkoutStats(statsData.slice(-7)) // Last 7 days
       setNutritionStats(Object.values(nutritionMap).slice(-7)) // Last 7 days
 
-      // Calculate milestones
-      const totalWorkouts = activities.filter(a => a.activity_type === 'workout').length + safeWorkouts.length
-      const totalCalories = activities
-        .filter(a => a.activity_type === 'workout')
-        .reduce((sum, a) => sum + (a.calories || 0), 0) + 
-        safeWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0)
-      const allWorkoutDates = [
-        ...activities.filter(a => a.activity_type === 'workout').map(a => new Date(a.created_at).toDateString()),
-        ...safeWorkouts.map(w => new Date(w.created_at).toDateString())
-      ]
+      // CORE REBUILD: Calculate milestones from activity_logs
+      const workoutActivities = activities?.filter(a => a.activity_type === 'workout') || []
+      const totalWorkouts = workoutActivities.length
+      const totalCalories = workoutActivities.reduce((sum, a) => sum + (parseFloat(a.calories) || 0), 0)
+      const allWorkoutDates = workoutActivities.map(a => new Date(a.created_at).toDateString())
       const totalDaysActive = new Set(allWorkoutDates).size
 
       const newMilestones = []
@@ -239,7 +148,7 @@ const Progress = () => {
 
       setMilestones(newMilestones)
 
-      // Weight history
+      // Weight history from profile
       if (profile?.weight_kg) {
         setWeightHistory([
           {
@@ -342,13 +251,11 @@ const Progress = () => {
                 padding: '12px',
               }}
               cursor={{ stroke: '#14b8a6', strokeWidth: 2 }}
-              // MOBILE SUPPORT: Enable touch events for mobile tap
               allowEscapeViewBox={{ x: false, y: true }}
               wrapperStyle={{ zIndex: 1000 }}
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
                   // CORE REBUILD: Get activity details for the hovered/tapped date
-                  // Normalize the label to match the format used in activityDetails
                   const normalizedLabel = label
                   const dateDetails = activityDetails[normalizedLabel] || []
                   const dataPoint = payload[0]?.payload

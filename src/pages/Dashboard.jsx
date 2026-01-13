@@ -31,71 +31,31 @@ const Dashboard = () => {
     // Initial load
     loadDashboardData()
 
-    // FORCE REBUILD: Real-time subscriptions that ACTUALLY WORK
-    console.log('📡 Dashboard: Setting up real-time subscriptions')
+    // CORE REBUILD: Real-time subscription for activity_logs ONLY
+    console.log('📡 Dashboard: Setting up real-time subscription for activity_logs')
     
-    const workoutChannel = supabase
-      .channel(`dashboard-workouts-${userId}-${Date.now()}`)
+    const activityChannel = supabase
+      .channel(`dashboard-activities-${userId}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'workout_logs',
+          table: 'activity_logs',
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log('🔔 Workout change detected:', payload)
+          console.log('🔔 Activity change detected:', payload)
           loadDashboardData()
         }
       )
       .subscribe((status) => {
-        console.log('📡 Workout channel status:', status)
-      })
-
-    const nutritionChannel = supabase
-      .channel(`dashboard-nutrition-${userId}-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'nutrition',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('🔔 Nutrition change detected:', payload)
-          loadDashboardData()
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Nutrition channel status:', status)
-      })
-
-    const waterChannel = supabase
-      .channel(`dashboard-water-${userId}-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'water_logs',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('🔔 Water change detected:', payload)
-          loadDashboardData()
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Water channel status:', status)
+        console.log('📡 Activity channel status:', status)
       })
 
     return () => {
-      console.log('🔌 Dashboard: Cleaning up subscriptions')
-      supabase.removeChannel(workoutChannel)
-      supabase.removeChannel(nutritionChannel)
-      supabase.removeChannel(waterChannel)
+      console.log('🔌 Dashboard: Cleaning up subscription')
+      supabase.removeChannel(activityChannel)
     }
   }, [user?.id])
 
@@ -110,53 +70,57 @@ const Dashboard = () => {
       const userId = user.id
       const isMobile = isMobileDevice()
       
-      // FORCE REBUILD: Get TODAY's date range (local timezone)
+      // CORE REBUILD: Get TODAY's date range (local timezone)
       const now = new Date()
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
       const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
       
-      console.log('📊 Dashboard Query:', {
+      console.log('📊 Dashboard Query (activity_logs ONLY):', {
         userId,
         startOfToday: startOfToday.toISOString(),
         endOfToday: endOfToday.toISOString()
       })
 
-      // FORCE REBUILD: Query workout_logs for today
-      const { data: workoutData, error: workoutError } = await supabase
-        .from('workout_logs')
+      // CORE REBUILD: Query activity_logs for TODAY'S activities
+      const { data: activities, error: activityError } = await supabase
+        .from('activity_logs')
         .select('*')
         .eq('user_id', userId)
         .gte('created_at', startOfToday.toISOString())
         .lte('created_at', endOfToday.toISOString())
 
-      // FORCE REBUILD: Query nutrition for today
-      const { data: nutritionData, error: nutritionError } = await supabase
-        .from('nutrition')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', startOfToday.toISOString())
-        .lte('created_at', endOfToday.toISOString())
+      if (activityError) {
+        // Handle table not found error gracefully
+        if (activityError.code === 'PGRST116' || activityError.message?.includes('does not exist')) {
+          console.warn('⚠️ activity_logs table not found. Please run SUPABASE-SCHEMA.sql')
+          setStats({ calories: 0, water: 0, workouts: 0 })
+          setActivityData([])
+          setLoading(false)
+          return
+        }
+        throw activityError
+      }
 
-      // FORCE REBUILD: Query water_logs for today
-      const { data: waterData, error: waterError } = await supabase
-        .from('water_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', startOfToday.toISOString())
-        .lte('created_at', endOfToday.toISOString())
-
-      console.log('📊 Dashboard Results:', {
-        workouts: workoutData?.length || 0,
-        nutrition: nutritionData?.length || 0,
-        water: waterData?.length || 0
+      console.log('📊 Dashboard Results (activity_logs):', {
+        totalActivities: activities?.length || 0,
+        activities: activities
       })
 
-      // Calculate totals
-      const workoutCalories = workoutData?.reduce((sum, w) => sum + (parseFloat(w.calories_burned) || 0), 0) || 0
-      const nutritionCalories = nutritionData?.reduce((sum, n) => sum + (parseFloat(n.calories) || 0), 0) || 0
-      const totalCalories = workoutCalories + nutritionCalories
-      const totalWater = waterData?.reduce((sum, w) => sum + (parseFloat(w.amount_ml) || 0), 0) || 0
-      const workoutCount = workoutData?.length || 0
+      // CORE REBUILD: Calculate totals from activity_logs
+      let totalCalories = 0
+      let totalWater = 0
+      let workoutCount = 0
+
+      activities?.forEach(activity => {
+        if (activity.activity_type === 'workout') {
+          totalCalories += parseFloat(activity.calories) || 0
+          workoutCount += 1
+        } else if (activity.activity_type === 'nutrition') {
+          totalCalories += parseFloat(activity.calories) || 0
+        } else if (activity.activity_type === 'water') {
+          totalWater += parseFloat(activity.amount) || 0
+        }
+      })
 
       // FORCE UPDATE STATE
       setStats({
@@ -171,17 +135,21 @@ const Dashboard = () => {
         workouts: workoutCount
       })
 
-      // Load chart data (last 7 days)
+      // CORE REBUILD: Load chart data (last 7 days) from activity_logs
       const activityDays = isMobile ? 5 : 7
       const daysAgo = new Date()
       daysAgo.setDate(daysAgo.getDate() - activityDays)
       daysAgo.setHours(0, 0, 0, 0)
 
-      const { data: historyData } = await supabase
-        .from('workout_logs')
-        .select('calories_burned, created_at')
+      const { data: historyData, error: historyError } = await supabase
+        .from('activity_logs')
+        .select('activity_type, calories, created_at')
         .eq('user_id', userId)
         .gte('created_at', daysAgo.toISOString())
+
+      if (historyError && !(historyError.code === 'PGRST116' || historyError.message?.includes('does not exist'))) {
+        throw historyError
+      }
 
       // Group by date
       const activityMap = {}
@@ -196,28 +164,30 @@ const Dashboard = () => {
       }
 
       historyData?.forEach((item) => {
-        const date = new Date(item.created_at)
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        if (activityMap[dateStr] !== undefined) {
-          activityMap[dateStr] += item.calories_burned || 0
+        if (item.activity_type === 'workout' || item.activity_type === 'nutrition') {
+          const date = new Date(item.created_at)
+          const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          if (activityMap[dateStr] !== undefined) {
+            activityMap[dateStr] += parseFloat(item.calories) || 0
+          }
         }
       })
 
       const chartData = days.map((day) => ({
         day,
-        calories: activityMap[day] || 0,
+        calories: Math.round(activityMap[day] || 0),
       }))
 
       setActivityData(chartData)
-      setLoading(false)
     } catch (error) {
       console.error('❌ Dashboard Load Error:', error)
-      setLoading(false)
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
       toast.error(`Failed to load dashboard: ${error.message}`)
       setError(error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -268,7 +238,6 @@ const Dashboard = () => {
     },
   ]
 
-  // REMOVED: Full-page loading spinner - Dashboard renders immediately
   // Only show error if user is not authenticated
   if (error && !user) {
     return (

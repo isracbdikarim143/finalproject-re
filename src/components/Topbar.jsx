@@ -457,10 +457,10 @@ const Topbar = () => {
                           console.log('✅ Logout Success')
                           toast.success('You have logged out successfully 👋', { duration: 3000 })
                           
-                          // ENFORCEMENT: Use window.location.replace to force navigation
+                          // CORE REBUILD: Use window.location.assign to force navigation
                           setTimeout(() => {
                             console.log('🔄 Redirecting to login...')
-                            window.location.replace('/login')
+                            window.location.assign('/login')
                           }, 500)
                         } catch (error) {
                           console.error('❌ Logout Failed:', error)
@@ -468,7 +468,7 @@ const Topbar = () => {
                           
                           // Force redirect anyway
                           setTimeout(() => {
-                            window.location.replace('/login')
+                            window.location.assign('/login')
                           }, 1000)
                         }
                       }}
