@@ -25,6 +25,61 @@ const Topbar = () => {
     }
   }, [profile])
 
+  // CORE REBUILD: Fetch last activity from activity_logs
+  useEffect(() => {
+    if (!user?.id) return
+
+    const loadLastActivity = async () => {
+      try {
+        // Try activity_logs first
+        const { data: activityData } = await supabase
+          .from('activity_logs')
+          .select('activity_type, activity_name, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (activityData) {
+          setLastActivity({
+            type: activityData.activity_type,
+            name: activityData.activity_name,
+            time: new Date(activityData.created_at),
+          })
+          return
+        }
+      } catch (error) {
+        // Fallback to workout_logs
+        try {
+          const { data: workoutData } = await supabase
+            .from('workout_logs')
+            .select('workout_type, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (workoutData) {
+            setLastActivity({
+              type: 'workout',
+              name: workoutData.workout_type || 'Workout',
+              time: new Date(workoutData.created_at),
+            })
+            return
+          }
+        } catch (workoutError) {
+          // Silent fail
+        }
+      }
+    }
+
+    loadLastActivity()
+    
+    // Refresh last activity every 30 seconds
+    const interval = setInterval(loadLastActivity, 30000)
+    return () => clearInterval(interval)
+  }, [user?.id])
+
   const loadAvatar = async (path) => {
     try {
       const { data } = await supabase.storage.from('avatars').getPublicUrl(path)
@@ -43,6 +98,7 @@ const Topbar = () => {
   const [sessionTime, setSessionTime] = useState(0)
   const [loginTime, setLoginTime] = useState(null)
   const [lastLogin, setLastLogin] = useState('')
+  const [lastActivity, setLastActivity] = useState(null)
 
   useEffect(() => {
     if (profile?.last_sign_in_at) {
@@ -314,12 +370,21 @@ const Topbar = () => {
                     </div>
                   </div>
                   <div className="p-2">
-                    {lastLogin && (
-                      <div className="px-3 py-2 text-xs text-gray-600">
-                        <p>Login: {lastLogin}</p>
-                        {sessionTime > 0 && <p>Session: {sessionTime} min</p>}
-                      </div>
-                    )}
+                    <div className="px-3 py-2 text-xs text-gray-600 space-y-1 border-b border-gray-200 mb-2">
+                      {lastLogin && (
+                        <p><span className="font-semibold">Login Time:</span> {lastLogin}</p>
+                      )}
+                      {sessionTime > 0 && (
+                        <p><span className="font-semibold">Session Duration:</span> {sessionTime} min</p>
+                      )}
+                      {lastActivity && (
+                        <p>
+                          <span className="font-semibold">Last Activity:</span>{' '}
+                          {lastActivity.name} ({lastActivity.type}) at{' '}
+                          {lastActivity.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
                     <button
                       onClick={async () => {
                         try {

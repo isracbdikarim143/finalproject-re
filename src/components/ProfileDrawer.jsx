@@ -45,11 +45,20 @@ const ProfileDrawer = ({ isOpen, onClose }) => {
 
   const handleLogout = async () => {
     try {
-      await signOut()
       onClose()
-      navigate('/login')
+      // CORE REBUILD: Call supabase.auth.signOut() directly and use window.location.replace
+      const { error } = await supabase.auth.signOut()
+      if (error && !(error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
+        return
+      }
+      // Hard redirect to login page
+      window.location.replace('/login')
     } catch (error) {
-      // Silent fail for logout error
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        return
+      }
+      toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
     }
   }
 

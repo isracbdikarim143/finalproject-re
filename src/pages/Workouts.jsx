@@ -149,6 +149,24 @@ const Workouts = () => {
           const filtered = prev.filter(w => w.id !== newWorkout.id)
           return [data[0], ...filtered]
         })
+        
+        // CORE REBUILD: Insert into activity_logs for Dashboard sync
+        try {
+          await supabase.from('activity_logs').insert({
+            user_id: userId,
+            activity_type: 'workout',
+            activity_name: workout.name,
+            calories: workout.calories || 0,
+            amount: workout.duration || 0,
+            metadata: {
+              workout_id: workout.id || workout.name,
+              duration_mins: workout.duration || 0,
+            },
+          })
+        } catch (activityError) {
+          // Silent fail - activity_logs might not exist yet
+        }
+        
         toast.success('Workout completed successfully ✅')
       } else {
         // Revert if no data returned

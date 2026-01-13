@@ -189,6 +189,7 @@ const Profile = () => {
         goal: formData.goal || null,
       }
 
+      // CORE REBUILD: Update profile and immediately exit editing mode
       const { data, error } = await updateProfile(updates)
 
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
@@ -200,11 +201,15 @@ const Profile = () => {
         return
       }
 
+      // CORE REBUILD: Exit editing immediately - BMI will calculate from updated profile
       setIsEditing(false)
       toast.success('Profile saved ✅')
       
-      // Reload profile to get updated BMI
-      await loadProfile(user.id)
+      // CORE REBUILD: Reload profile in background (non-blocking) to sync with database
+      // BMI will update instantly from the profile state which is updated by updateProfile
+      loadProfile(user.id).catch(() => {
+        // Silent fail - profile already updated optimistically
+      })
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return

@@ -11,6 +11,7 @@ const Progress = () => {
   const [nutritionStats, setNutritionStats] = useState([])
   const [weightHistory, setWeightHistory] = useState([])
   const [milestones, setMilestones] = useState([])
+  const [activityDetails, setActivityDetails] = useState({}) // Store detailed activity data for tooltips
 
   useEffect(() => {
     if (!user?.id) return
@@ -61,46 +62,122 @@ const Progress = () => {
     if (!user?.id) return
 
     try {
-      // Load workout statistics (last 30 days)
+      // CORE REBUILD: Load from activity_logs for detailed tooltip data
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
       thirtyDaysAgo.setHours(0, 0, 0, 0)
 
-      const { data: workouts, error: workoutError } = await supabase
-        .from('workout_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: true })
+      // Try activity_logs first, fallback to individual tables
+      const [activityLogsResult, workoutsResult, nutritionResult] = await Promise.allSettled([
+        supabase
+          .from('activity_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .order('created_at', { ascending: true }),
+        
+        supabase
+          .from('workout_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .order('created_at', { ascending: true }),
+        
+        supabase
+          .from('nutrition')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .order('created_at', { ascending: true }),
+      ])
 
-      // CRITICAL FIX: Silent catch for AbortError - allows charts to render even if request cancelled
-      if (workoutError && (workoutError.name === 'AbortError' || workoutError.message?.includes('aborted'))) {
-        // Continue with empty workouts array - don't block chart rendering
-      } else if (workoutError) {
-        // Silent fail - continue with empty workouts array
+      // Process activity_logs (primary source with detailed data)
+      let activities = []
+      let safeWorkouts = []
+      let safeNutrition = []
+      
+      if (activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data) {
+        activities = activityLogsResult.value.data
+      } else {
+        // Fallback to individual tables
+        if (workoutsResult.status === 'fulfilled' && workoutsResult.value.data) {
+          safeWorkouts = workoutsResult.value.data
+        }
+        if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
+          safeNutrition = nutritionResult.value.data
+        }
       }
 
-      // Load nutrition statistics
-      const { data: nutrition, error: nutritionError } = await supabase
-        .from('nutrition')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: true })
+      // CORE REBUILD: Store detailed activity data by date for tooltips
+      const detailsMap = {}
+      
+      // Process activities from activity_logs
+      activities.forEach((activity) => {
+        const date = new Date(activity.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        if (!detailsMap[date]) {
+          detailsMap[date] = []
+        }
+        detailsMap[date].push({
+          type: activity.activity_type,
+          name: activity.activity_name,
+          calories: activity.calories || 0,
+          amount: activity.amount || 0,
+          time: new Date(activity.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        })
+      })
 
-      // CRITICAL FIX: Silent catch for AbortError - allows charts to render even if request cancelled
-      if (nutritionError && (nutritionError.name === 'AbortError' || nutritionError.message?.includes('aborted'))) {
-        // Continue with empty nutrition array - don't block chart rendering
-      } else if (nutritionError) {
-        // Silent fail - continue with empty nutrition array
-      }
+      // Process fallback data
+      safeWorkouts.forEach((workout) => {
+        const date = new Date(workout.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        if (!detailsMap[date]) {
+          detailsMap[date] = []
+        }
+        detailsMap[date].push({
+          type: 'workout',
+          name: workout.workout_type || 'Workout',
+          calories: workout.calories_burned || 0,
+          amount: workout.duration_mins || 0,
+          time: new Date(workout.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        })
+      })
 
-      // EMERGENCY FIX: Ensure workouts and nutrition are arrays even if aborted
-      const safeWorkouts = workouts || []
-      const safeNutrition = nutrition || []
+      safeNutrition.forEach((item) => {
+        const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        if (!detailsMap[date]) {
+          detailsMap[date] = []
+        }
+        detailsMap[date].push({
+          type: 'nutrition',
+          name: item.food_name || 'Food',
+          calories: item.calories || 0,
+          amount: item.calories || 0,
+          time: new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        })
+      })
 
-      // Process workout stats by date
+      setActivityDetails(detailsMap)
+
+      // Aggregate stats by date
       const workoutMap = {}
+      const nutritionMap = {}
+      
+      activities.forEach((activity) => {
+        const date = new Date(activity.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        if (activity.activity_type === 'workout') {
+          if (!workoutMap[date]) {
+            workoutMap[date] = { date, workouts: 0, calories: 0 }
+          }
+          workoutMap[date].workouts += 1
+          workoutMap[date].calories += activity.calories || 0
+        } else if (activity.activity_type === 'nutrition') {
+          if (!nutritionMap[date]) {
+            nutritionMap[date] = { date, calories: 0 }
+          }
+          nutritionMap[date].calories += activity.calories || 0
+        }
+      })
+
+      // Process fallback data
       safeWorkouts.forEach((workout) => {
         const date = new Date(workout.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (!workoutMap[date]) {
@@ -110,17 +187,12 @@ const Progress = () => {
         workoutMap[date].calories += workout.calories_burned || 0
       })
 
-      // Process nutrition stats by date
-      const nutritionMap = {}
       safeNutrition.forEach((item) => {
         const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (!nutritionMap[date]) {
-          nutritionMap[date] = { date, calories: 0, protein: 0, carbs: 0, fat: 0 }
+          nutritionMap[date] = { date, calories: 0 }
         }
         nutritionMap[date].calories += item.calories || 0
-        nutritionMap[date].protein += item.protein || 0
-        nutritionMap[date].carbs += item.carbs || 0
-        nutritionMap[date].fat += item.fat || 0
       })
 
       // Combine data
@@ -138,9 +210,16 @@ const Progress = () => {
       setNutritionStats(Object.values(nutritionMap).slice(-7)) // Last 7 days
 
       // Calculate milestones
-      const totalWorkouts = safeWorkouts.length
-      const totalCalories = safeWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0)
-      const totalDaysActive = new Set(safeWorkouts.map((w) => new Date(w.created_at).toDateString())).size
+      const totalWorkouts = activities.filter(a => a.activity_type === 'workout').length + safeWorkouts.length
+      const totalCalories = activities
+        .filter(a => a.activity_type === 'workout')
+        .reduce((sum, a) => sum + (a.calories || 0), 0) + 
+        safeWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0)
+      const allWorkoutDates = [
+        ...activities.filter(a => a.activity_type === 'workout').map(a => new Date(a.created_at).toDateString()),
+        ...safeWorkouts.map(w => new Date(w.created_at).toDateString())
+      ]
+      const totalDaysActive = new Set(allWorkoutDates).size
 
       const newMilestones = []
       if (totalWorkouts >= 10) newMilestones.push({ icon: Award, label: '10 Workouts Completed', color: 'from-green-500 to-emerald-500' })
@@ -151,7 +230,7 @@ const Progress = () => {
 
       setMilestones(newMilestones)
 
-      // Weight history (if weight_logs table exists, use it; otherwise use profile)
+      // Weight history
       if (profile?.weight_kg) {
         setWeightHistory([
           {
@@ -161,20 +240,16 @@ const Progress = () => {
         ])
       }
     } catch (error) {
-      // CRITICAL FIX: Silent catch for AbortError - prevents console errors and allows charts to render
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        // Set empty arrays but don't show error - charts can still render
         setWorkoutStats([])
         setNutritionStats([])
         setMilestones([])
         return
       }
       
-      // Only show error toast for critical errors, not for missing tables
       if (error.code !== 'PGRST116' && !error.message?.includes('relation') && !error.message?.includes('does not exist')) {
         toast.error(`Failed to load progress data: ${error.message || 'Unknown error'}`)
       }
-      // Set empty arrays on error
       setWorkoutStats([])
       setNutritionStats([])
       setMilestones([])
@@ -255,6 +330,36 @@ const Progress = () => {
                 border: 'none',
                 borderRadius: '12px',
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                padding: '12px',
+              }}
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const dateDetails = activityDetails[label] || []
+                  return (
+                    <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+                      <p className="font-bold text-gray-900 mb-2">{label}</p>
+                      {dateDetails.length > 0 ? (
+                        <div className="space-y-1">
+                          {dateDetails.map((detail, idx) => (
+                            <div key={idx} className="text-sm">
+                              <span className="font-semibold text-teal-600">{detail.type}:</span>{' '}
+                              <span className="text-gray-700">{detail.name}</span>
+                              <br />
+                              <span className="text-gray-600">
+                                {detail.type === 'water' ? `${detail.amount}ml` : `${detail.calories} kcal`}
+                                {' • '}
+                                <span className="text-gray-500">{detail.time}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-600">No activity data</p>
+                      )}
+                    </div>
+                  )
+                }
+                return null
               }}
             />
             <Legend />

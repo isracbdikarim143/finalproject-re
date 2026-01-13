@@ -174,6 +174,25 @@ const Nutrition = () => {
           const filtered = prev.filter(log => log.id !== tempLog.id)
           return [data[0], ...filtered]
         })
+        
+        // CORE REBUILD: Insert into activity_logs for Dashboard sync
+        try {
+          await supabase.from('activity_logs').insert({
+            user_id: user.id,
+            activity_type: 'nutrition',
+            activity_name: food.name,
+            calories: food.calories,
+            amount: food.calories,
+            metadata: {
+              protein: food.protein,
+              carbs: food.carbs,
+              fat: food.fat,
+            },
+          })
+        } catch (activityError) {
+          // Silent fail - activity_logs might not exist yet
+        }
+        
         toast.success(`✅ ${food.name} logged!`)
       } else {
         // Revert on error
@@ -285,6 +304,22 @@ const Nutrition = () => {
       }
 
       if (data && data.length > 0) {
+        // CORE REBUILD: Insert into activity_logs for Dashboard sync
+        try {
+          await supabase.from('activity_logs').insert({
+            user_id: user.id,
+            activity_type: 'water',
+            activity_name: 'Water Intake',
+            calories: 0,
+            amount: 250,
+            metadata: {
+              amount_ml: 250,
+            },
+          })
+        } catch (activityError) {
+          // Silent fail - activity_logs might not exist yet
+        }
+        
         toast.success('✅ 250ml water added!')
         // Refresh to get accurate total
         loadTodayLogs()

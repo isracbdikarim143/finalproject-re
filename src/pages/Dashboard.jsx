@@ -26,7 +26,24 @@ const Dashboard = () => {
     const userId = user.id // Safe to use after null check
     loadDashboardData()
 
-    // Real-time subscription for nutrition
+    // CORE REBUILD: Real-time subscription for activity_logs (primary)
+    const activityChannel = supabase
+      .channel(`activity-logs-changes-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'activity_logs',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          loadDashboardData()
+        }
+      )
+      .subscribe()
+
+    // Fallback subscriptions for individual tables
     const nutritionChannel = supabase
       .channel(`nutrition-changes-${userId}`)
       .on(
@@ -43,7 +60,6 @@ const Dashboard = () => {
       )
       .subscribe()
 
-    // Real-time subscription for workout_logs
     const workoutChannel = supabase
       .channel(`workout-log-changes-${userId}`)
       .on(
@@ -60,7 +76,6 @@ const Dashboard = () => {
       )
       .subscribe()
 
-    // Real-time subscription for water_logs
     const waterChannel = supabase
       .channel(`water-log-changes-${userId}`)
       .on(
@@ -78,6 +93,7 @@ const Dashboard = () => {
       .subscribe()
 
     return () => {
+      supabase.removeChannel(activityChannel)
       supabase.removeChannel(nutritionChannel)
       supabase.removeChannel(workoutChannel)
       supabase.removeChannel(waterChannel)
@@ -89,102 +105,109 @@ const Dashboard = () => {
       return
     }
 
-    // INSTANT DASHBOARD: Don't set loading - fetch in background, Dashboard renders immediately
     setError(null)
 
     try {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const todayISO = today.toISOString()
       const userId = user.id
       const isMobile = isMobileDevice()
+      
+      // CORE REBUILD: Get today's date in local timezone
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const todayISO = today.toISOString()
+      
+      // Get tomorrow for end of day
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrowISO = tomorrow.toISOString()
 
       // MOBILE OPTIMIZATION: Reduce initial data rows for mobile
-      const activityDays = isMobile ? 5 : 7 // 5 days for mobile, 7 for desktop
+      const activityDays = isMobile ? 5 : 7
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - activityDays)
       sevenDaysAgo.setHours(0, 0, 0, 0)
 
-      // PARALLEL DATA FETCHING: Use Promise.allSettled to fetch all data simultaneously
-      // Even if one query is slow, the rest still render
-      const [nutritionResult, workoutResult, waterResult, activityNutritionResult, activityWorkoutResult] = await Promise.allSettled([
-        // Today's nutrition
+      // CORE REBUILD: Fetch from activity_logs as primary source, fallback to individual tables
+      const [activityLogsResult, nutritionResult, workoutResult, waterResult, activityHistoryResult] = await Promise.allSettled([
+        // Primary: Today's activity_logs
+        supabase
+          .from('activity_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('created_at', todayISO)
+          .lt('created_at', tomorrowISO),
+        
+        // Fallback: Today's nutrition
         supabase
           .from('nutrition')
           .select('calories')
           .eq('user_id', userId)
-          .gte('created_at', todayISO),
+          .gte('created_at', todayISO)
+          .lt('created_at', tomorrowISO),
         
-        // CORE LOGIC: Today's workout logs - fetch user_id, calories_burned, duration_mins
+        // Fallback: Today's workout logs
         supabase
           .from('workout_logs')
           .select('calories_burned, duration_mins, workout_type')
           .eq('user_id', userId)
-          .gte('created_at', todayISO),
+          .gte('created_at', todayISO)
+          .lt('created_at', tomorrowISO),
         
-        // Today's water logs
+        // Fallback: Today's water logs
         supabase
           .from('water_logs')
           .select('amount_ml')
           .eq('user_id', userId)
-          .gte('created_at', todayISO),
+          .gte('created_at', todayISO)
+          .lt('created_at', tomorrowISO),
         
-        // Activity nutrition data
+        // Activity history for chart (last 7 days)
         supabase
-          .from('nutrition')
-          .select('calories, created_at')
-          .eq('user_id', userId)
-          .gte('created_at', sevenDaysAgo.toISOString()),
-        
-        // CORE LOGIC: Activity workout data - fetch from workout_logs table
-        supabase
-          .from('workout_logs')
-          .select('calories_burned, duration_mins, created_at')
+          .from('activity_logs')
+          .select('*')
           .eq('user_id', userId)
           .gte('created_at', sevenDaysAgo.toISOString()),
       ])
 
-      // Process nutrition data
+      // Process activity_logs (primary source)
       let totalCalories = 0
-      if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
-        totalCalories = nutritionResult.value.data.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
-      } else if (nutritionResult.status === 'rejected') {
-        // Silent fail - continue with 0 calories
-      }
-
-      // Process workout data - CORE LOGIC: Fetch from workout_logs table
-      let workoutCalories = 0
       let workoutCount = 0
-      if (workoutResult.status === 'fulfilled' && workoutResult.value.data) {
-        workoutCalories = workoutResult.value.data.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
-        workoutCount = workoutResult.value.data.length || 0
-      } else if (workoutResult.status === 'rejected') {
-        // Silent fail - continue with 0 workouts
-        const error = workoutResult.reason
-        if (error && !error.message?.includes('relation') && !error.message?.includes('does not exist')) {
-          toast.error(`Failed to load workout data: ${error.message || 'Unknown error'}`)
-        }
-      }
-
-      // Process water data
       let totalWater = 0
-      if (waterResult.status === 'fulfilled' && waterResult.value.data) {
-        totalWater = waterResult.value.data.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
-      } else if (waterResult.status === 'rejected') {
-        // Silent fail - continue with 0 water
+      
+      if (activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data) {
+        const activities = activityLogsResult.value.data
+        totalCalories = activities.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
+        workoutCount = activities.filter(a => a.activity_type === 'workout').length || 0
+        totalWater = activities
+          .filter(a => a.activity_type === 'water')
+          .reduce((sum, item) => sum + (item.amount || 0), 0) || 0
+      } else {
+        // Fallback to individual tables if activity_logs doesn't exist
+        if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
+          totalCalories += nutritionResult.value.data.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
+        }
+        
+        if (workoutResult.status === 'fulfilled' && workoutResult.value.data) {
+          const workoutCalories = workoutResult.value.data.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
+          totalCalories += workoutCalories
+          workoutCount = workoutResult.value.data.length || 0
+        }
+        
+        if (waterResult.status === 'fulfilled' && waterResult.value.data) {
+          totalWater = waterResult.value.data.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
+        }
       }
 
       // Update stats immediately
       setStats({
-        calories: totalCalories + workoutCalories,
+        calories: totalCalories,
         water: totalWater,
         workouts: workoutCount,
       })
 
-      // Process activity data
-      const nutrition = activityNutritionResult.status === 'fulfilled' ? activityNutritionResult.value.data : []
-      const workoutLogs = activityWorkoutResult.status === 'fulfilled' ? activityWorkoutResult.value.data : []
-
+      // Process activity history for chart
+      const activityHistory = activityHistoryResult.status === 'fulfilled' ? activityHistoryResult.value.data : []
+      
       // Group by date
       const activityMap = {}
       const days = []
@@ -197,19 +220,11 @@ const Dashboard = () => {
         activityMap[dateStr] = 0
       }
 
-      nutrition?.forEach((item) => {
+      activityHistory?.forEach((item) => {
         const date = new Date(item.created_at)
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         if (activityMap[dateStr] !== undefined) {
           activityMap[dateStr] += item.calories || 0
-        }
-      })
-
-      workoutLogs?.forEach((item) => {
-        const date = new Date(item.created_at)
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        if (activityMap[dateStr] !== undefined) {
-          activityMap[dateStr] += item.calories_burned || 0
         }
       })
 
@@ -220,7 +235,6 @@ const Dashboard = () => {
 
       setActivityData(chartData)
     } catch (error) {
-      // Silent catch for AbortError - prevents console errors during presentation
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
