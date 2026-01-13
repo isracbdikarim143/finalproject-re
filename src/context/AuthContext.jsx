@@ -100,6 +100,7 @@ export const AuthProvider = ({ children }) => {
         .single()
 
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        setLoading(false)
         return
       }
 
@@ -110,11 +111,11 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        setLoading(false)
         return
       }
       toast.error(`Failed to load profile: ${error.message || 'Unknown error'}`)
     } finally {
-      // Ensure loading state is always cleared
       setLoading(false)
     }
   }
@@ -256,24 +257,31 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      setLoading(true)
       const { error } = await supabase.auth.signOut()
       
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        setLoading(false)
         return
       }
       
       if (error) {
         toast.error(`Failed to sign out: ${error.message || 'Unknown error'}`)
+        setLoading(false)
         throw error
       }
       
       setUser(null)
       setProfile(null)
+      toast.success('Logged out successfully')
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        setLoading(false)
         return
       }
       toast.error(`Failed to sign out: ${error.message || 'Unknown error'}`)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -284,6 +292,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      setLoading(true)
       const { data, error } = await supabase
         .from('profiles')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -292,11 +301,13 @@ export const AuthProvider = ({ children }) => {
         .single()
 
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
+        setLoading(false)
         return { data: null, error }
       }
 
       if (error) {
         toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
+        setLoading(false)
         throw error
       }
 
@@ -304,10 +315,13 @@ export const AuthProvider = ({ children }) => {
       return { data, error: null }
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        setLoading(false)
         return { data: null, error }
       }
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
       return { data: null, error }
+    } finally {
+      setLoading(false)
     }
   }
 

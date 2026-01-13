@@ -49,7 +49,7 @@ const ProfileDrawer = ({ isOpen, onClose }) => {
       onClose()
       navigate('/login')
     } catch (error) {
-      console.error('Logout error:', error)
+      // Silent fail for logout error
     }
   }
 

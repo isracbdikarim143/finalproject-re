@@ -37,7 +37,6 @@ try {
 } catch (error) {
   // Suppress AbortError in render catch
   if (error?.name !== 'AbortError' && !error?.message?.includes('aborted')) {
-    console.error('❌ Failed to render application:', error)
     document.body.innerHTML = `
       <div style="padding: 20px; font-family: sans-serif; color: red;">
         <h1>Application Failed to Load</h1>

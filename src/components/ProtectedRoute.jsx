@@ -14,7 +14,6 @@ const ProtectedRoute = ({ children }) => {
       try {
         const isMobile = isMobileDevice()
         const delay = isMobile ? 1000 : 300 // 1 second for mobile, 300ms for desktop
-        console.log(`🔍 ProtectedRoute: Checking session after ${delay}ms delay (${isMobile ? 'Mobile' : 'Desktop'})`)
         
         // Check session immediately first (no delay for initial check)
         let { data: { session }, error } = await supabase.auth.getSession()
@@ -27,7 +26,6 @@ const ProtectedRoute = ({ children }) => {
         
         if (session) {
           // INSTANT RENDER: If session exists immediately, render children right away
-          console.log('✅ ProtectedRoute: Session found immediately, rendering children')
           setHasSession(true)
           setSessionChecked(true)
           return // Exit early - no need to wait
@@ -46,10 +44,8 @@ const ProtectedRoute = ({ children }) => {
         }
         
         if (delayedError) {
-          console.error('ProtectedRoute: Session check error:', delayedError)
           setHasSession(false)
         } else {
-          console.log('ProtectedRoute: Session check result after delay:', !!delayedSession)
           setHasSession(!!delayedSession)
         }
       } catch (err) {
@@ -58,7 +54,6 @@ const ProtectedRoute = ({ children }) => {
           setSessionChecked(true)
           return
         }
-        console.error('ProtectedRoute: Session check exception:', err)
         setHasSession(false)
       } finally {
         setSessionChecked(true)

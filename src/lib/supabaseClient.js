@@ -6,9 +6,6 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // STEP 1: Env Var Check - Friendly error instead of crashing
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('⚠️ CRITICAL: Supabase environment variables are missing!')
-  console.error('   Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file or Vercel settings.')
-  console.error('   The app will continue but database features will not work.')
   // Don't throw - allow app to render with placeholder values
 }
 
@@ -18,14 +15,7 @@ if (supabaseUrl && typeof supabaseUrl === 'string') {
   supabaseUrl = supabaseUrl.replace(/^https?:\/\//, '')
   // Force HTTPS
   supabaseUrl = `https://${supabaseUrl}`
-  console.log('🔒 MOBILE FIX: Forced HTTPS protocol for Supabase URL')
 }
-
-// Simple logging
-console.log('🔍 Supabase Client Initialization')
-console.log('  - URL exists:', !!supabaseUrl)
-console.log('  - Key exists:', !!supabaseAnonKey)
-console.log('  - URL starts with https://:', supabaseUrl?.startsWith('https://'))
 
 // Helper function to detect mobile user agent
 export const isMobileDevice = () => {
@@ -130,4 +120,3 @@ export const checkSupabaseConfig = () => {
   }
 }
 
-console.log('✅ Supabase client initialized with implicit flow and mobile optimizations')

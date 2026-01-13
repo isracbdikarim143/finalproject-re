@@ -8,7 +8,7 @@ import { somaliFoods } from '../data/somaliFoods'
 import toast from 'react-hot-toast'
 
 const Topbar = () => {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -323,9 +323,14 @@ const Topbar = () => {
                     <button
                       onClick={async () => {
                         try {
-                          await signOut()
                           setShowProfileDrawer(false)
-                          // CORE REBUILD: Use window.location.replace for hard redirect
+                          // CORE REBUILD: Call supabase.auth.signOut() directly and redirect
+                          const { error } = await supabase.auth.signOut()
+                          if (error && !(error.name === 'AbortError' || error.message?.includes('aborted'))) {
+                            toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
+                            return
+                          }
+                          // Hard redirect to login page
                           window.location.replace('/login')
                         } catch (error) {
                           if (error.name === 'AbortError' || error.message?.includes('aborted')) {
