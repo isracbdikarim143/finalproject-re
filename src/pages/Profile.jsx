@@ -44,16 +44,33 @@ const Profile = () => {
   }, [profile, user])
 
   const loadAvatar = async (path) => {
+    if (!path) {
+      setAvatarUrl(null)
+      return
+    }
+    
     try {
-      const { data } = await supabase.storage.from('avatars').getPublicUrl(path)
+      const { data, error } = await supabase.storage.from('avatars').getPublicUrl(path)
+      if (error) {
+        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+          return
+        }
+        console.warn('Avatar load error:', error.message)
+        setAvatarUrl(null)
+        return
+      }
+      
       if (data?.publicUrl) {
         setAvatarUrl(data.publicUrl)
+      } else {
+        setAvatarUrl(null)
       }
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      // Silent fail for avatar loading
+      console.warn('Avatar load error:', error.message)
+      setAvatarUrl(null)
     }
   }
 
@@ -119,16 +136,29 @@ const Profile = () => {
       }
 
       // Load new avatar from storage
-      const { data: publicUrlData } = await supabase.storage.from('avatars').getPublicUrl(filePath)
+      const { data: publicUrlData, error: urlError } = await supabase.storage.from('avatars').getPublicUrl(filePath)
+      if (urlError) {
+        console.warn('Failed to get public URL:', urlError.message)
+      }
+      
       if (publicUrlData?.publicUrl) {
         // Revoke old preview URL
         if (previewUrl) {
           URL.revokeObjectURL(previewUrl)
         }
         setAvatarUrl(publicUrlData.publicUrl)
+      } else {
+        // If public URL not available, keep preview URL temporarily
+        console.warn('Public URL not available, keeping preview')
       }
       
-      await loadProfile(user.id)
+      // Reload profile in background (non-blocking)
+      loadProfile(user.id).catch(err => {
+        if (!(err.name === 'AbortError' || err.message?.includes('aborted'))) {
+          console.warn('Profile reload failed:', err.message)
+        }
+      })
+      
       toast.success('Avatar updated successfully! ✅', { duration: 3000 })
     } catch (error) {
       // Revert optimistic update on error - revoke object URL
@@ -226,8 +256,12 @@ const Profile = () => {
           weight_kg: data.weight_kg || '',
           goal: data.goal || '',
         })
-        // Update profile in context
-        await loadProfile(user.id)
+        // Update profile in context (non-blocking)
+        loadProfile(user.id).catch(err => {
+          if (!(err.name === 'AbortError' || err.message?.includes('aborted'))) {
+            console.warn('Profile reload failed:', err.message)
+          }
+        })
       }
 
       // CORE REBUILD: Exit editing immediately - no loading state blocking UI

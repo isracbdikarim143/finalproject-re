@@ -344,14 +344,17 @@ const Progress = () => {
               cursor={{ stroke: '#14b8a6', strokeWidth: 2 }}
               // MOBILE SUPPORT: Enable touch events for mobile tap
               allowEscapeViewBox={{ x: false, y: true }}
+              wrapperStyle={{ zIndex: 1000 }}
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
-                  // CORE REBUILD: Get activity details for the hovered date
-                  const dateDetails = activityDetails[label] || []
+                  // CORE REBUILD: Get activity details for the hovered/tapped date
+                  // Normalize the label to match the format used in activityDetails
+                  const normalizedLabel = label
+                  const dateDetails = activityDetails[normalizedLabel] || []
                   const dataPoint = payload[0]?.payload
                   
                   return (
-                    <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200 max-w-xs">
+                    <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200 max-w-xs z-50">
                       <p className="font-bold text-gray-900 mb-2">{label}</p>
                       {dateDetails.length > 0 ? (
                         <div className="space-y-2">
@@ -381,6 +384,9 @@ const Progress = () => {
                         <div className="text-sm">
                           <p className="text-gray-600 mb-1">Workouts: {dataPoint?.workouts || 0}</p>
                           <p className="text-gray-600">Calories: {dataPoint?.workoutCalories || 0} kcal</p>
+                          {dataPoint?.nutritionCalories > 0 && (
+                            <p className="text-gray-600">Nutrition: {dataPoint.nutritionCalories} kcal</p>
+                          )}
                         </div>
                       )}
                     </div>

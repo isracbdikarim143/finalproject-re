@@ -32,18 +32,22 @@ const Topbar = () => {
     const loadLastActivity = async () => {
       try {
         // Try activity_logs first
-        const { data: activityData } = await supabase
+        const { data: activityData, error: activityError } = await supabase
           .from('activity_logs')
           .select('activity_type, activity_name, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
+
+        if (activityError && !(activityError.code === 'PGRST116' || activityError.message?.includes('does not exist'))) {
+          throw activityError
+        }
 
         if (activityData) {
           setLastActivity({
             type: activityData.activity_type,
-            name: activityData.activity_name,
+            name: activityData.activity_name || activityData.activity_type,
             time: new Date(activityData.created_at),
           })
           return
@@ -51,13 +55,17 @@ const Topbar = () => {
       } catch (error) {
         // Fallback to workout_logs
         try {
-          const { data: workoutData } = await supabase
+          const { data: workoutData, error: workoutError } = await supabase
             .from('workout_logs')
             .select('workout_type, created_at')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single()
+            .maybeSingle()
+
+          if (workoutError && !(workoutError.code === 'PGRST116' || workoutError.message?.includes('does not exist'))) {
+            throw workoutError
+          }
 
           if (workoutData) {
             setLastActivity({
@@ -68,7 +76,8 @@ const Topbar = () => {
             return
           }
         } catch (workoutError) {
-          // Silent fail
+          // Silent fail - no activity data available
+          setLastActivity(null)
         }
       }
     }

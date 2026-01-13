@@ -111,14 +111,16 @@ const Dashboard = () => {
       const userId = user.id
       const isMobile = isMobileDevice()
       
-      // CORE REBUILD: Get today's date in local timezone
+      // CORE REBUILD: Get today's date in local timezone (start of day)
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      today.setHours(0, 0, 0, 0)
       const todayISO = today.toISOString()
       
-      // Get tomorrow for end of day
+      // Get tomorrow for end of day (start of next day)
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(0, 0, 0, 0)
       const tomorrowISO = tomorrow.toISOString()
 
       // MOBILE OPTIMIZATION: Reduce initial data rows for mobile
