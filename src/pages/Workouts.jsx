@@ -104,21 +104,30 @@ const Workouts = () => {
     try {
       const userId = user.id
 
-      // CORE REBUILD: Insert into workout_logs with user_id, duration, calories, workout_id
+      // CORE REBUILD: Insert into activity_logs ONLY (single source of truth)
       const { data, error: insertError } = await supabase
-        .from('workout_logs')
+        .from('activity_logs')
         .insert({
           user_id: userId,
-          workout_id: workout.id || workout.name, // Use workout.id if available, fallback to name
-          workout_type: workout.name,
-          duration_mins: workout.duration || 0,
-          calories_burned: workout.calories || 0,
+          activity_type: 'workout',
+          activity_name: workout.name,
+          calories: workout.calories || 0,
+          amount: workout.duration || 0,
+          duration: workout.duration || 0,
+          metadata: {
+            workout_id: workout.id || workout.name,
+            duration_mins: workout.duration || 0,
+            sets: workout.sets || 0,
+            reps: workout.reps || 0,
+            difficulty: workout.difficulty || 'Intermediate'
+          },
         })
         .select()
 
       // Silent catch for AbortError
       if (insertError && (insertError.name === 'AbortError' || insertError.message?.includes('aborted'))) {
         // Keep optimistic update even if aborted
+        toast.success('Workout completed successfully ✅', { duration: 3000 })
         return
       }
 
@@ -132,11 +141,11 @@ const Workouts = () => {
           insertError.message?.includes('relation') ||
           insertError.message?.includes('does not exist')
         ) {
-          toast.error('workout_logs table not found. Please create it in Supabase.')
+          toast.error('activity_logs table not found. Please run SUPABASE-SCHEMA.sql in Supabase.')
         } else if (insertError.code === '23503') {
           toast.error('User not found. Please log out and log back in.')
         } else if (insertError.code === '42501') {
-          toast.error('Permission denied. Please check RLS policies on workout_logs table.')
+          toast.error('Permission denied. Please check RLS policies on activity_logs table.')
         } else {
           toast.error(`Failed to log workout: ${insertError.message || 'Unknown error'}`)
         }
@@ -149,29 +158,6 @@ const Workouts = () => {
           const filtered = prev.filter(w => w.id !== newWorkout.id)
           return [data[0], ...filtered]
         })
-        
-        // CORE REBUILD: Insert into activity_logs for Dashboard sync
-        try {
-          const { error: activityError } = await supabase.from('activity_logs').insert({
-            user_id: userId,
-            activity_type: 'workout',
-            activity_name: workout.name,
-            calories: workout.calories || 0,
-            amount: workout.duration || 0,
-            metadata: {
-              workout_id: workout.id || workout.name,
-              duration_mins: workout.duration || 0,
-            },
-          })
-          if (activityError && !(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
-            console.warn('Failed to create activity_log entry:', activityError.message)
-          }
-        } catch (activityError) {
-          // Silent fail - activity_logs might not exist yet
-          if (!(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
-            console.warn('Activity log creation failed:', activityError.message)
-          }
-        }
         
         toast.success('Workout completed successfully ✅', { duration: 3000 })
       } else {
