@@ -95,31 +95,34 @@ const Profile = () => {
       return
     }
 
-    // CORE REBUILD: Use URL.createObjectURL for instant preview (mobile-friendly)
-    let previewUrl = null
+    // FORCE REBUILD: Instant preview with URL.createObjectURL
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarUrl(previewUrl)
+    setUploading(true)
+    
+    console.log('📸 Avatar Upload Started')
+
     try {
-      previewUrl = URL.createObjectURL(file)
-      setAvatarUrl(previewUrl)
-      setUploading(true)
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
       const filePath = fileName
 
+      console.log('📤 Uploading to Supabase Storage:', filePath)
+
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true, // Allow overwrite
+          upsert: true,
         })
 
       if (uploadError) {
-        if (uploadError.name === 'AbortError' || uploadError.message?.includes('aborted')) {
-          setUploading(false)
-          return
-        }
+        console.error('❌ Upload Error:', uploadError)
         throw uploadError
       }
+
+      console.log('✅ Upload Success:', uploadData)
 
       // Update profile with avatar URL
       const { error: updateError } = await supabase
@@ -128,56 +131,41 @@ const Profile = () => {
         .eq('id', user.id)
 
       if (updateError) {
-        if (updateError.name === 'AbortError' || updateError.message?.includes('aborted')) {
-          setUploading(false)
-          return
-        }
+        console.error('❌ Profile Update Error:', updateError)
         throw updateError
       }
 
-      // Load new avatar from storage
-      const { data: publicUrlData, error: urlError } = await supabase.storage.from('avatars').getPublicUrl(filePath)
-      if (urlError) {
-        console.warn('Failed to get public URL:', urlError.message)
-      }
+      console.log('✅ Profile Updated')
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath)
       
       if (publicUrlData?.publicUrl) {
-        // Revoke old preview URL
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl)
-        }
+        URL.revokeObjectURL(previewUrl)
         setAvatarUrl(publicUrlData.publicUrl)
-      } else {
-        // If public URL not available, keep preview URL temporarily
-        console.warn('Public URL not available, keeping preview')
+        console.log('✅ Public URL Set:', publicUrlData.publicUrl)
       }
-      
-      // Reload profile in background (non-blocking)
-      loadProfile(user.id).catch(err => {
-        if (!(err.name === 'AbortError' || err.message?.includes('aborted'))) {
-          console.warn('Profile reload failed:', err.message)
-        }
-      })
       
       toast.success('Avatar updated successfully! ✅', { duration: 3000 })
+      
+      // Reload profile in background
+      loadProfile(user.id).catch(err => console.warn('Profile reload warning:', err))
     } catch (error) {
-      // Revert optimistic update on error - revoke object URL
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
+      console.error('❌ Avatar Upload Failed:', error)
+      
+      // Revert on error
+      URL.revokeObjectURL(previewUrl)
       if (profile?.avatar_url) {
-        await loadAvatar(profile.avatar_url)
+        loadAvatar(profile.avatar_url)
       } else {
         setAvatarUrl(null)
       }
 
-      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        setUploading(false)
-        return
-      }
       toast.error(`Failed to upload avatar: ${error.message || 'Unknown error'}`)
     } finally {
+      // ZERO SPINNER POLICY: Always stop loading
       setUploading(false)
+      console.log('🛑 Avatar Upload Complete (loading stopped)')
     }
   }
 
@@ -211,6 +199,8 @@ const Profile = () => {
       return
     }
 
+    console.log('💾 Profile Save Started')
+
     try {
       // Validate inputs
       if (formData.height_cm && (isNaN(formData.height_cm) || formData.height_cm < 50 || formData.height_cm > 250)) {
@@ -228,26 +218,28 @@ const Profile = () => {
         height_cm: formData.height_cm ? parseFloat(formData.height_cm) : null,
         weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
         goal: formData.goal || null,
+        updated_at: new Date().toISOString(),
       }
 
-      // CORE REBUILD: Update profile directly without blocking UI
+      console.log('💾 Saving profile updates:', updates)
+
+      // FORCE REBUILD: Save without blocking UI
       const { data, error } = await supabase
         .from('profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(updates)
         .eq('id', user.id)
         .select()
         .single()
 
-      if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
-        return
-      }
-
       if (error) {
+        console.error('❌ Profile Save Error:', error)
         toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
         return
       }
 
-      // Update local profile state immediately
+      console.log('✅ Profile Saved:', data)
+
+      // Update local state immediately
       if (data) {
         setFormData({
           full_name: data.full_name || '',
@@ -256,21 +248,25 @@ const Profile = () => {
           weight_kg: data.weight_kg || '',
           goal: data.goal || '',
         })
-        // Update profile in context (non-blocking)
-        loadProfile(user.id).catch(err => {
-          if (!(err.name === 'AbortError' || err.message?.includes('aborted'))) {
-            console.warn('Profile reload failed:', err.message)
-          }
-        })
+        
+        // Calculate and log BMI
+        if (data.height_cm && data.weight_kg) {
+          const heightM = parseFloat(data.height_cm) / 100
+          const weightKg = parseFloat(data.weight_kg)
+          const bmi = (weightKg / (heightM * heightM)).toFixed(1)
+          console.log(`📊 BMI Auto-Calculated: ${bmi}`)
+        }
+        
+        // Reload profile in background (non-blocking)
+        loadProfile(user.id).catch(err => console.warn('Profile reload warning:', err))
       }
 
-      // CORE REBUILD: Exit editing immediately - no loading state blocking UI
+      // ZERO SPINNER POLICY: Exit editing immediately - NO BLANK PAGE
       setIsEditing(false)
       toast.success('Profile saved successfully ✅', { duration: 3000 })
+      console.log('✅ Profile Save Complete (no blank page)')
     } catch (error) {
-      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        return
-      }
+      console.error('❌ Profile Save Failed:', error)
       toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`)
     }
   }

@@ -253,7 +253,7 @@ const Nutrition = () => {
 
       if (error) throw error
 
-      toast.success('Food log deleted')
+      toast.success('Food log deleted ✅', { duration: 3000 })
     } catch (error) {
       // Revert optimistic update
       setTodayLogs(prev => [logToDelete, ...prev])
@@ -267,8 +267,7 @@ const Nutrition = () => {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
       }
-      // Error handled by toast below
-      toast.error('Failed to delete log')
+      toast.error('Failed to delete log ❌')
     }
   }
 

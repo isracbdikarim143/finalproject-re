@@ -396,6 +396,14 @@ const Topbar = () => {
                   </div>
                   <div className="p-2">
                     <div className="px-3 py-2 text-xs text-gray-600 space-y-1.5 border-b border-gray-200 mb-2">
+                      <p className="flex justify-between">
+                        <span className="font-semibold text-gray-700">Email:</span>
+                        <span className="text-gray-600 truncate ml-2">{user?.email || 'N/A'}</span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span className="font-semibold text-gray-700">Username:</span>
+                        <span className="text-gray-600 truncate ml-2">{profile?.full_name || 'N/A'}</span>
+                      </p>
                       {lastLogin && (
                         <p className="flex justify-between">
                           <span className="font-semibold text-gray-700">Login Time:</span>
@@ -404,18 +412,16 @@ const Topbar = () => {
                       )}
                       {lastLogout && (
                         <p className="flex justify-between">
-                          <span className="font-semibold text-gray-700">Logout Time:</span>
+                          <span className="font-semibold text-gray-700">Last Logout:</span>
                           <span className="text-gray-600">{lastLogout}</span>
                         </p>
                       )}
-                      {sessionTime > 0 && (
-                        <p className="flex justify-between">
-                          <span className="font-semibold text-gray-700">Session Duration:</span>
-                          <span className="text-gray-600">{sessionTime} min</span>
-                        </p>
-                      )}
+                      <p className="flex justify-between">
+                        <span className="font-semibold text-gray-700">Session Duration:</span>
+                        <span className="text-gray-600">{sessionTime > 0 ? `${sessionTime} min` : 'Just started'}</span>
+                      </p>
                       {lastActivity && (
-                        <p className="pt-1 border-t border-gray-200 mt-1">
+                        <p className="pt-1.5 border-t border-gray-200 mt-1.5">
                           <span className="font-semibold text-gray-700 block mb-1">Last Activity:</span>
                           <span className="text-gray-600 text-xs">
                             {lastActivity.name} ({lastActivity.type})<br />
@@ -426,17 +432,44 @@ const Topbar = () => {
                     </div>
                     <button
                       onClick={async () => {
+                        console.log('🚪 Logout Clicked')
+                        setShowProfileDrawer(false)
+                        
                         try {
-                          setShowProfileDrawer(false)
-                          // CORE REBUILD: Use AuthContext signOut which handles logout_time and redirect
-                          await signOut()
-                          // Redirect to login after successful logout
-                          navigate('/login')
-                        } catch (error) {
-                          if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-                            return
+                          // FORCE REBUILD: Logout with window.location.replace
+                          console.log('🔐 Calling supabase.auth.signOut()')
+                          
+                          // Save logout time before signing out
+                          if (user?.id) {
+                            await supabase
+                              .from('profiles')
+                              .update({ logout_time: new Date().toISOString() })
+                              .eq('id', user.id)
                           }
+                          
+                          const { error } = await supabase.auth.signOut()
+                          
+                          if (error) {
+                            console.error('❌ Logout Error:', error)
+                            throw error
+                          }
+                          
+                          console.log('✅ Logout Success')
+                          toast.success('You have logged out successfully 👋', { duration: 3000 })
+                          
+                          // ENFORCEMENT: Use window.location.replace to force navigation
+                          setTimeout(() => {
+                            console.log('🔄 Redirecting to login...')
+                            window.location.replace('/login')
+                          }, 500)
+                        } catch (error) {
+                          console.error('❌ Logout Failed:', error)
                           toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
+                          
+                          // Force redirect anyway
+                          setTimeout(() => {
+                            window.location.replace('/login')
+                          }, 1000)
                         }
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-2"
