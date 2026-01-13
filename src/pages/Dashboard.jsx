@@ -174,34 +174,34 @@ const Dashboard = () => {
       let workoutCount = 0
       let totalWater = 0
       
-      if (activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data) {
+      if (activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data && activityLogsResult.value.data.length > 0) {
         const activities = activityLogsResult.value.data
-        totalCalories = activities.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
+        totalCalories = activities.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) || 0
         workoutCount = activities.filter(a => a.activity_type === 'workout').length || 0
         totalWater = activities
           .filter(a => a.activity_type === 'water')
-          .reduce((sum, item) => sum + (item.amount || 0), 0) || 0
+          .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0) || 0
       } else {
-        // Fallback to individual tables if activity_logs doesn't exist
+        // Fallback to individual tables if activity_logs doesn't exist or is empty
         if (nutritionResult.status === 'fulfilled' && nutritionResult.value.data) {
-          totalCalories += nutritionResult.value.data.reduce((sum, item) => sum + (item.calories || 0), 0) || 0
+          totalCalories += nutritionResult.value.data.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) || 0
         }
         
         if (workoutResult.status === 'fulfilled' && workoutResult.value.data) {
-          const workoutCalories = workoutResult.value.data.reduce((sum, item) => sum + (item.calories_burned || 0), 0) || 0
+          const workoutCalories = workoutResult.value.data.reduce((sum, item) => sum + (parseFloat(item.calories_burned) || 0), 0) || 0
           totalCalories += workoutCalories
           workoutCount = workoutResult.value.data.length || 0
         }
         
         if (waterResult.status === 'fulfilled' && waterResult.value.data) {
-          totalWater = waterResult.value.data.reduce((sum, item) => sum + (item.amount_ml || 0), 0) || 0
+          totalWater = waterResult.value.data.reduce((sum, item) => sum + (parseFloat(item.amount_ml) || 0), 0) || 0
         }
       }
 
       // Update stats immediately
       setStats({
-        calories: totalCalories,
-        water: totalWater,
+        calories: Math.round(totalCalories),
+        water: Math.round(totalWater),
         workouts: workoutCount,
       })
 

@@ -152,7 +152,7 @@ const Workouts = () => {
         
         // CORE REBUILD: Insert into activity_logs for Dashboard sync
         try {
-          await supabase.from('activity_logs').insert({
+          const { error: activityError } = await supabase.from('activity_logs').insert({
             user_id: userId,
             activity_type: 'workout',
             activity_name: workout.name,
@@ -163,11 +163,17 @@ const Workouts = () => {
               duration_mins: workout.duration || 0,
             },
           })
+          if (activityError && !(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
+            console.warn('Failed to create activity_log entry:', activityError.message)
+          }
         } catch (activityError) {
           // Silent fail - activity_logs might not exist yet
+          if (!(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
+            console.warn('Activity log creation failed:', activityError.message)
+          }
         }
         
-        toast.success('Workout completed successfully ✅')
+        toast.success('Workout completed successfully ✅', { duration: 3000 })
       } else {
         // Revert if no data returned
         setTodayWorkouts(prev => prev.filter(w => w.id !== newWorkout.id))

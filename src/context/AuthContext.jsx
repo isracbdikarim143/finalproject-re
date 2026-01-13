@@ -257,6 +257,23 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     try {
+      const userId = user?.id
+      
+      // Save logout_time before signing out
+      if (userId) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ logout_time: new Date().toISOString() })
+            .eq('id', userId)
+        } catch (profileError) {
+          // Silent fail - logout_time update is non-critical
+          if (!(profileError.name === 'AbortError' || profileError.message?.includes('aborted'))) {
+            console.warn('Failed to save logout_time:', profileError.message)
+          }
+        }
+      }
+      
       setLoading(true)
       const { error } = await supabase.auth.signOut()
       
@@ -273,7 +290,7 @@ export const AuthProvider = ({ children }) => {
       
       setUser(null)
       setProfile(null)
-      toast.success('Logged out successfully')
+      toast.success('You have logged out successfully 👋', { duration: 3000 })
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         setLoading(false)

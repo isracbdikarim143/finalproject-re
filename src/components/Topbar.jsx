@@ -8,7 +8,7 @@ import { somaliFoods } from '../data/somaliFoods'
 import toast from 'react-hot-toast'
 
 const Topbar = () => {
-  const { user, profile } = useAuth()
+  const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -98,33 +98,49 @@ const Topbar = () => {
   const [sessionTime, setSessionTime] = useState(0)
   const [loginTime, setLoginTime] = useState(null)
   const [lastLogin, setLastLogin] = useState('')
+  const [lastLogout, setLastLogout] = useState('')
   const [lastActivity, setLastActivity] = useState(null)
 
   useEffect(() => {
     if (profile?.last_sign_in_at) {
       const lastLoginDate = new Date(profile.last_sign_in_at)
       setLoginTime(lastLoginDate)
-      setLastLogin(lastLoginDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))
+      setLastLogin(lastLoginDate.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }))
+    }
+    
+    if (profile?.logout_time) {
+      const lastLogoutDate = new Date(profile.logout_time)
+      setLastLogout(lastLogoutDate.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }))
+    }
 
-      // Update session time every minute
-      const interval = setInterval(() => {
-        if (loginTime) {
-          const now = new Date()
-          const diff = Math.floor((now - loginTime) / 1000 / 60) // minutes
-          setSessionTime(diff)
-        }
-      }, 60000) // Update every minute
-
-      // Initial calculation
+    // Update session time every minute
+    const interval = setInterval(() => {
       if (loginTime) {
         const now = new Date()
-        const diff = Math.floor((now - loginTime) / 1000 / 60)
+        const diff = Math.floor((now - loginTime) / 1000 / 60) // minutes
         setSessionTime(diff)
       }
+    }, 60000) // Update every minute
 
-      return () => clearInterval(interval)
+    // Initial calculation
+    if (loginTime) {
+      const now = new Date()
+      const diff = Math.floor((now - loginTime) / 1000 / 60)
+      setSessionTime(diff)
     }
-  }, [profile?.last_sign_in_at, loginTime])
+
+    return () => clearInterval(interval)
+  }, [profile?.last_sign_in_at, profile?.logout_time, loginTime])
 
   // Global search functionality
   useEffect(() => {
@@ -370,18 +386,32 @@ const Topbar = () => {
                     </div>
                   </div>
                   <div className="p-2">
-                    <div className="px-3 py-2 text-xs text-gray-600 space-y-1 border-b border-gray-200 mb-2">
+                    <div className="px-3 py-2 text-xs text-gray-600 space-y-1.5 border-b border-gray-200 mb-2">
                       {lastLogin && (
-                        <p><span className="font-semibold">Login Time:</span> {lastLogin}</p>
+                        <p className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Login Time:</span>
+                          <span className="text-gray-600">{lastLogin}</span>
+                        </p>
+                      )}
+                      {lastLogout && (
+                        <p className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Logout Time:</span>
+                          <span className="text-gray-600">{lastLogout}</span>
+                        </p>
                       )}
                       {sessionTime > 0 && (
-                        <p><span className="font-semibold">Session Duration:</span> {sessionTime} min</p>
+                        <p className="flex justify-between">
+                          <span className="font-semibold text-gray-700">Session Duration:</span>
+                          <span className="text-gray-600">{sessionTime} min</span>
+                        </p>
                       )}
                       {lastActivity && (
-                        <p>
-                          <span className="font-semibold">Last Activity:</span>{' '}
-                          {lastActivity.name} ({lastActivity.type}) at{' '}
-                          {lastActivity.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        <p className="pt-1 border-t border-gray-200 mt-1">
+                          <span className="font-semibold text-gray-700 block mb-1">Last Activity:</span>
+                          <span className="text-gray-600 text-xs">
+                            {lastActivity.name} ({lastActivity.type})<br />
+                            {lastActivity.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </p>
                       )}
                     </div>
@@ -389,14 +419,10 @@ const Topbar = () => {
                       onClick={async () => {
                         try {
                           setShowProfileDrawer(false)
-                          // CORE REBUILD: Call supabase.auth.signOut() directly and redirect
-                          const { error } = await supabase.auth.signOut()
-                          if (error && !(error.name === 'AbortError' || error.message?.includes('aborted'))) {
-                            toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
-                            return
-                          }
-                          // Hard redirect to login page
-                          window.location.replace('/login')
+                          // CORE REBUILD: Use AuthContext signOut which handles logout_time and redirect
+                          await signOut()
+                          // Redirect to login after successful logout
+                          navigate('/login')
                         } catch (error) {
                           if (error.name === 'AbortError' || error.message?.includes('aborted')) {
                             return
@@ -404,7 +430,7 @@ const Topbar = () => {
                           toast.error(`Failed to logout: ${error.message || 'Unknown error'}`)
                         }
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-2"
                     >
                       <LogOut className="w-4 h-4" />
                       Logout

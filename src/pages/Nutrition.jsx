@@ -162,7 +162,7 @@ const Nutrition = () => {
 
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
         // Keep optimistic update
-        toast.success(`✅ ${food.name} logged!`)
+        toast.success(`Nutrition logged successfully ✅`, { duration: 3000 })
         return
       }
 
@@ -177,7 +177,7 @@ const Nutrition = () => {
         
         // CORE REBUILD: Insert into activity_logs for Dashboard sync
         try {
-          await supabase.from('activity_logs').insert({
+          const { error: activityError } = await supabase.from('activity_logs').insert({
             user_id: user.id,
             activity_type: 'nutrition',
             activity_name: food.name,
@@ -189,11 +189,17 @@ const Nutrition = () => {
               fat: food.fat,
             },
           })
+          if (activityError && !(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
+            console.warn('Failed to create activity_log entry:', activityError.message)
+          }
         } catch (activityError) {
           // Silent fail - activity_logs might not exist yet
+          if (!(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
+            console.warn('Activity log creation failed:', activityError.message)
+          }
         }
         
-        toast.success(`✅ ${food.name} logged!`)
+        toast.success(`Nutrition logged successfully ✅`, { duration: 3000 })
       } else {
         // Revert on error
         setTodayLogs(prev => prev.filter(log => log.id !== tempLog.id))
@@ -287,7 +293,7 @@ const Nutrition = () => {
 
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
         // Keep optimistic update
-        toast.success('✅ 250ml water added!')
+        toast.success('Water added successfully ✅', { duration: 3000 })
         return
       }
 
@@ -306,7 +312,7 @@ const Nutrition = () => {
       if (data && data.length > 0) {
         // CORE REBUILD: Insert into activity_logs for Dashboard sync
         try {
-          await supabase.from('activity_logs').insert({
+          const { error: activityError } = await supabase.from('activity_logs').insert({
             user_id: user.id,
             activity_type: 'water',
             activity_name: 'Water Intake',
@@ -316,11 +322,17 @@ const Nutrition = () => {
               amount_ml: 250,
             },
           })
+          if (activityError && !(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
+            console.warn('Failed to create activity_log entry:', activityError.message)
+          }
         } catch (activityError) {
           // Silent fail - activity_logs might not exist yet
+          if (!(activityError.name === 'AbortError' || activityError.message?.includes('aborted'))) {
+            console.warn('Activity log creation failed:', activityError.message)
+          }
         }
         
-        toast.success('✅ 250ml water added!')
+        toast.success('Water added successfully ✅', { duration: 3000 })
         // Refresh to get accurate total
         loadTodayLogs()
       } else {

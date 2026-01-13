@@ -109,26 +109,33 @@ const Progress = () => {
       }
 
       // CORE REBUILD: Store detailed activity data by date for tooltips
+      // Use consistent date formatting function
+      const formatDateForMap = (dateString) => {
+        const date = new Date(dateString)
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      }
+      
       const detailsMap = {}
       
       // Process activities from activity_logs
       activities.forEach((activity) => {
-        const date = new Date(activity.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = formatDateForMap(activity.created_at)
         if (!detailsMap[date]) {
           detailsMap[date] = []
         }
         detailsMap[date].push({
           type: activity.activity_type,
-          name: activity.activity_name,
+          name: activity.activity_name || activity.activity_type,
           calories: activity.calories || 0,
           amount: activity.amount || 0,
+          duration: activity.metadata?.duration_mins || activity.amount || 0,
           time: new Date(activity.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         })
       })
 
       // Process fallback data
       safeWorkouts.forEach((workout) => {
-        const date = new Date(workout.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = formatDateForMap(workout.created_at)
         if (!detailsMap[date]) {
           detailsMap[date] = []
         }
@@ -137,12 +144,13 @@ const Progress = () => {
           name: workout.workout_type || 'Workout',
           calories: workout.calories_burned || 0,
           amount: workout.duration_mins || 0,
+          duration: workout.duration_mins || 0,
           time: new Date(workout.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         })
       })
 
       safeNutrition.forEach((item) => {
-        const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = formatDateForMap(item.created_at)
         if (!detailsMap[date]) {
           detailsMap[date] = []
         }
@@ -151,18 +159,19 @@ const Progress = () => {
           name: item.food_name || 'Food',
           calories: item.calories || 0,
           amount: item.calories || 0,
+          duration: 0,
           time: new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         })
       })
 
       setActivityDetails(detailsMap)
 
-      // Aggregate stats by date
+      // Aggregate stats by date using same date formatting
       const workoutMap = {}
       const nutritionMap = {}
       
       activities.forEach((activity) => {
-        const date = new Date(activity.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = formatDateForMap(activity.created_at)
         if (activity.activity_type === 'workout') {
           if (!workoutMap[date]) {
             workoutMap[date] = { date, workouts: 0, calories: 0 }
@@ -179,7 +188,7 @@ const Progress = () => {
 
       // Process fallback data
       safeWorkouts.forEach((workout) => {
-        const date = new Date(workout.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = formatDateForMap(workout.created_at)
         if (!workoutMap[date]) {
           workoutMap[date] = { date, workouts: 0, calories: 0 }
         }
@@ -188,7 +197,7 @@ const Progress = () => {
       })
 
       safeNutrition.forEach((item) => {
-        const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const date = formatDateForMap(item.created_at)
         if (!nutritionMap[date]) {
           nutritionMap[date] = { date, calories: 0 }
         }
@@ -332,29 +341,47 @@ const Progress = () => {
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                 padding: '12px',
               }}
+              cursor={{ stroke: '#14b8a6', strokeWidth: 2 }}
+              // MOBILE SUPPORT: Enable touch events for mobile tap
+              allowEscapeViewBox={{ x: false, y: true }}
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
+                  // CORE REBUILD: Get activity details for the hovered date
                   const dateDetails = activityDetails[label] || []
+                  const dataPoint = payload[0]?.payload
+                  
                   return (
-                    <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+                    <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200 max-w-xs">
                       <p className="font-bold text-gray-900 mb-2">{label}</p>
                       {dateDetails.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {dateDetails.map((detail, idx) => (
-                            <div key={idx} className="text-sm">
-                              <span className="font-semibold text-teal-600">{detail.type}:</span>{' '}
-                              <span className="text-gray-700">{detail.name}</span>
-                              <br />
-                              <span className="text-gray-600">
-                                {detail.type === 'water' ? `${detail.amount}ml` : `${detail.calories} kcal`}
+                            <div key={idx} className="text-sm border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                              <div className="flex items-start gap-2">
+                                <span className={`font-semibold ${
+                                  detail.type === 'workout' ? 'text-teal-600' :
+                                  detail.type === 'nutrition' ? 'text-orange-600' :
+                                  'text-blue-600'
+                                }`}>
+                                  {detail.type === 'workout' ? '💪' : detail.type === 'nutrition' ? '🍎' : '💧'} {detail.type}:
+                                </span>
+                                <span className="text-gray-700 flex-1">{detail.name}</span>
+                              </div>
+                              <div className="text-gray-600 text-xs mt-1 ml-6">
+                                {detail.type === 'water' ? `${detail.amount}ml` : 
+                                 detail.type === 'workout' ? `${detail.duration || detail.amount} min • ${detail.calories} kcal` :
+                                 `${detail.calories} kcal`}
                                 {' • '}
                                 <span className="text-gray-500">{detail.time}</span>
-                              </span>
+                              </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-600">No activity data</p>
+                        <div className="text-sm">
+                          <p className="text-gray-600 mb-1">Workouts: {dataPoint?.workouts || 0}</p>
+                          <p className="text-gray-600">Calories: {dataPoint?.workoutCalories || 0} kcal</p>
+                        </div>
                       )}
                     </div>
                   )

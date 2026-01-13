@@ -98,6 +98,7 @@ const Profile = () => {
 
       if (uploadError) {
         if (uploadError.name === 'AbortError' || uploadError.message?.includes('aborted')) {
+          setUploading(false)
           return
         }
         throw uploadError
@@ -111,15 +112,24 @@ const Profile = () => {
 
       if (updateError) {
         if (updateError.name === 'AbortError' || updateError.message?.includes('aborted')) {
+          setUploading(false)
           return
         }
         throw updateError
       }
 
       // Load new avatar from storage
-      await loadAvatar(filePath)
+      const { data: publicUrlData } = await supabase.storage.from('avatars').getPublicUrl(filePath)
+      if (publicUrlData?.publicUrl) {
+        // Revoke old preview URL
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl)
+        }
+        setAvatarUrl(publicUrlData.publicUrl)
+      }
+      
       await loadProfile(user.id)
-      toast.success('Avatar updated successfully! ✅')
+      toast.success('Avatar updated successfully! ✅', { duration: 3000 })
     } catch (error) {
       // Revert optimistic update on error - revoke object URL
       if (previewUrl) {
@@ -132,6 +142,7 @@ const Profile = () => {
       }
 
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        setUploading(false)
         return
       }
       toast.error(`Failed to upload avatar: ${error.message || 'Unknown error'}`)
@@ -189,8 +200,13 @@ const Profile = () => {
         goal: formData.goal || null,
       }
 
-      // CORE REBUILD: Update profile and immediately exit editing mode
-      const { data, error } = await updateProfile(updates)
+      // CORE REBUILD: Update profile directly without blocking UI
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+        .select()
+        .single()
 
       if (error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
         return
@@ -201,15 +217,22 @@ const Profile = () => {
         return
       }
 
-      // CORE REBUILD: Exit editing immediately - BMI will calculate from updated profile
+      // Update local profile state immediately
+      if (data) {
+        setFormData({
+          full_name: data.full_name || '',
+          email: user?.email || '',
+          height_cm: data.height_cm || '',
+          weight_kg: data.weight_kg || '',
+          goal: data.goal || '',
+        })
+        // Update profile in context
+        await loadProfile(user.id)
+      }
+
+      // CORE REBUILD: Exit editing immediately - no loading state blocking UI
       setIsEditing(false)
-      toast.success('Profile saved ✅')
-      
-      // CORE REBUILD: Reload profile in background (non-blocking) to sync with database
-      // BMI will update instantly from the profile state which is updated by updateProfile
-      loadProfile(user.id).catch(() => {
-        // Silent fail - profile already updated optimistically
-      })
+      toast.success('Profile saved successfully ✅', { duration: 3000 })
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
         return
